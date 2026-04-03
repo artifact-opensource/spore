@@ -25,6 +25,11 @@ echo $$ > "$PIDFILE"
 
 log "Guardian started (pid $$)"
 
+# Kill orphan zombie sleep loops from previous runs
+pkill -f "while true; do sleep" 2>/dev/null
+pkill -f "sleep 300" 2>/dev/null
+log "Cleaned up orphan processes"
+
 # Acquire wake lock so Android doesn't kill us
 termux-wake-lock 2>/dev/null
 log "Wake lock acquired"

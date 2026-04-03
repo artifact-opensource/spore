@@ -5,38 +5,6 @@ import (
 	"strings"
 )
 
-// --- App activity mappings for direct launch via am start ---
-// These bypass monkey and properly foreground the app
-
-var appActivities = map[string]string{
-	"com.android.chrome":                  "com.android.chrome/com.google.android.apps.chrome.Main",
-	"com.android.settings":                "com.android.settings/.Settings",
-	"com.google.android.apps.nbu.files":   "com.google.android.apps.nbu.files/.home.HomeActivity",
-	"com.sec.android.app.myfiles":         "com.sec.android.app.myfiles/.common.MainActivity",
-	"com.google.android.youtube":          "com.google.android.youtube/.HomeActivity",
-	"com.google.android.apps.maps":        "com.google.android.apps.maps/com.google.android.maps.MapsActivity",
-	"com.google.android.gm":              "com.google.android.gm/.ConversationListActivityGmail",
-	"com.whatsapp":                        "com.whatsapp/.Main",
-	"org.telegram.messenger":              "org.telegram.messenger/org.telegram.ui.LaunchActivity",
-	"com.twitter.android":                 "com.twitter.android/.StartActivity",
-	"com.facebook.katana":                 "com.facebook.katana/.LoginActivity",
-	"com.instagram.android":               "com.instagram.android/.activity.MainTabActivity",
-	"com.spotify.music":                   "com.spotify.music/.MainActivity",
-	"com.discord":                         "com.discord/.main.MainActivity",
-	"com.Slack":                           "com.Slack/.ui.HomeActivity",
-	"com.termux":                          "com.termux/.app.TermuxActivity",
-	"com.arlosoft.macrodroid":             "com.arlosoft.macrodroid/.homescreen.NewHomeScreenActivity",
-	"com.sec.android.app.camera":          "com.sec.android.app.camera/.Camera",
-	"com.samsung.android.dialer":          "com.samsung.android.dialer/.DialtactsActivity",
-	"com.samsung.android.messaging":       "com.samsung.android.messaging/.ui.view.main.MainActivityStart",
-	"com.samsung.android.calendar":        "com.samsung.android.calendar/.CalendarActivity",
-	"com.sec.android.app.clockpackage":    "com.sec.android.app.clockpackage/.ClockPackage",
-	"com.reddit.frontpage":                "com.reddit.frontpage/.StartActivity",
-	"com.netflix.mediaclient":             "com.netflix.mediaclient/.ui.launch.UIWebViewActivity",
-	"com.microsoft.office.outlook":        "com.microsoft.office.outlook/.MainActivity",
-	"com.exness.investor":                 "com.exness.investor/.ui.splash.SplashActivity",
-}
-
 // --- App name lookup table ---
 
 var appNames = map[string]string{
@@ -246,41 +214,84 @@ var knownActivities = map[string]string{
 	"com.termux":                           "com.termux/.app.TermuxActivity",
 	"org.telegram.messenger":              "org.telegram.messenger/.DefaultIcon",
 	"com.samsung.android.app.notes":       "com.samsung.android.app.notes/.main.MainActivity",
+	"com.discord":                         "com.discord/.main.MainActivity",
+	"com.Slack":                           "com.Slack/.ui.HomeActivity",
+	"com.arlosoft.macrodroid":             "com.arlosoft.macrodroid/.homescreen.NewHomeScreenActivity",
+	"com.sec.android.app.camera":          "com.sec.android.app.camera/.Camera",
+	"com.sec.android.app.myfiles":         "com.sec.android.app.myfiles/.common.MainActivity",
+	"com.samsung.android.dialer":          "com.samsung.android.dialer/.DialtactsActivity",
+	"com.samsung.android.messaging":       "com.samsung.android.messaging/.ui.view.main.MainActivityStart",
+	"com.samsung.android.calendar":        "com.samsung.android.calendar/.CalendarActivity",
+	"com.sec.android.app.clockpackage":    "com.sec.android.app.clockpackage/.ClockPackage",
+	"com.reddit.frontpage":                "com.reddit.frontpage/.StartActivity",
+	"com.netflix.mediaclient":             "com.netflix.mediaclient/.ui.launch.UIWebViewActivity",
+	"com.microsoft.office.outlook":        "com.microsoft.office.outlook/.MainActivity",
+	"com.exness.investor":                 "com.exness.investor/.ui.splash.SplashActivity",
+}
+
+// appURISchemes maps package names to URI schemes that Android will route to the correct app.
+// Using termux-open with a URI scheme goes through Termux's foreground context,
+// bypassing Android 13+ background activity start restrictions.
+var appURISchemes = map[string]string{
+	"com.android.chrome":                "googlechrome://navigate?url=about:blank",
+	"com.google.android.youtube":        "vnd.youtube://",
+	"com.google.android.apps.maps":      "geo:0,0",
+	"com.google.android.gm":             "mailto:",
+	"com.whatsapp":                       "whatsapp://",
+	"com.instagram.android":              "instagram://",
+	"com.twitter.android":                "twitter://",
+	"com.facebook.katana":                "fb://",
+	"com.spotify.music":                  "spotify://",
+	"org.telegram.messenger":             "tg://",
+	"com.discord":                        "discord://",
+	"com.Slack":                          "slack://",
+	"com.reddit.frontpage":               "reddit://",
+	"com.netflix.mediaclient":            "nflx://",
 }
 
 func (t *Toolbox) AppLaunch(name string) string {
 	pkg := resolveApp(name)
 
-	// Try known activity mapping first — this properly foregrounds
+	// Method 1: URI scheme via termux-open (best for Android 13+ — uses foreground context)
+	if uri, ok := appURISchemes[pkg]; ok {
+		result := t.ExecTimeout(fmt.Sprintf("termux-open '%s' 2>&1", uri), 10)
+		if !strings.Contains(result, "Error") && !strings.Contains(result, "error") {
+			return fmt.Sprintf("launched %s", name)
+		}
+	}
+
+	// Method 2: am start via termux-am (works for settings, system apps, and when URI unavailable)
 	if activity, ok := knownActivities[pkg]; ok {
 		cmd := fmt.Sprintf("am start -n %s 2>&1", activity)
 		result := t.ExecTimeout(cmd, 10)
 		if !strings.Contains(result, "Error") && !strings.Contains(result, "error") {
-			return fmt.Sprintf("launched %s (%s)", name, pkg)
+			return fmt.Sprintf("launched %s (may need to switch to it manually — Android restricts background app starts)", name)
 		}
 	}
 
-	// Fallback: monkey (works for most apps but may not foreground reliably)
-	cmd := fmt.Sprintf("monkey -p %s -c android.intent.category.LAUNCHER 1 2>&1", pkg)
+	// Method 3: am start with MAIN/LAUNCHER intent
+	cmd := fmt.Sprintf("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n %s 2>&1", pkg)
 	result := t.ExecTimeout(cmd, 10)
-	if strings.Contains(result, "No activities found") {
-		// Last resort: am start with category
-		cmd = fmt.Sprintf("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER $(pm resolve-activity --brief %s 2>/dev/null | tail -1) 2>&1", pkg)
-		result = t.ExecTimeout(cmd, 10)
-	}
 	if strings.Contains(result, "Error") || strings.Contains(result, "error") {
 		return fmt.Sprintf("failed to launch %s (%s): %s", name, pkg, result)
 	}
-	return fmt.Sprintf("launched %s (%s)", name, pkg)
+	return fmt.Sprintf("launched %s (may need to switch to it manually)", name)
 }
 
 func (t *Toolbox) AppStop(name string) string {
 	pkg := resolveApp(name)
+	// am force-stop may not work on Android 13+ without system permissions
 	result := t.ExecTimeout(fmt.Sprintf("am force-stop %s 2>&1", pkg), 5)
-	if result == "" {
-		return fmt.Sprintf("stopped %s (%s)", name, pkg)
+	if strings.Contains(result, "Error") || strings.Contains(result, "Permission") {
+		// Fallback: try killing via pid
+		pidResult := t.ExecTimeout(fmt.Sprintf("pidof %s 2>/dev/null", pkg), 3)
+		if pidResult != "" {
+			t.ExecTimeout(fmt.Sprintf("kill %s 2>/dev/null", strings.TrimSpace(pidResult)), 3)
+			return fmt.Sprintf("killed %s process", name)
+		}
+		return fmt.Sprintf("cannot stop %s — Android restricts this from Termux. Use the app switcher to close it.", name)
 	}
-	return result
+	return fmt.Sprintf("stopped %s", name)
 }
 
 func (t *Toolbox) AppList(filter string) string {
