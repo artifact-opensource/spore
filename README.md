@@ -1,4 +1,4 @@
-# Symbiote for Android
+# SYMBIOTE: Spore 
 
 Portable agentic runtime for Android via Termux. Single binary, zero dependencies, full shell control.
 
