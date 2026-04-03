@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/artifact-virtual/symbiote-android/provider"
+	"github.com/artifact-opensource/spore/provider"
 )
 
 // Session represents a persistent conversation

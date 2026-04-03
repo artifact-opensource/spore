@@ -3,25 +3,23 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/artifact-virtual/symbiote-android/copilot"
-	"github.com/artifact-virtual/symbiote-android/core"
-	"github.com/artifact-virtual/symbiote-android/daemon"
-	discordbot "github.com/artifact-virtual/symbiote-android/discord"
-	"github.com/artifact-virtual/symbiote-android/memory"
-	"github.com/artifact-virtual/symbiote-android/network"
-	"github.com/artifact-virtual/symbiote-android/shell"
-	"github.com/artifact-virtual/symbiote-android/tools"
+	"github.com/artifact-opensource/spore/core"
+	"github.com/artifact-opensource/spore/daemon"
+	discordbot "github.com/artifact-opensource/spore/discord"
+	"github.com/artifact-opensource/spore/memory"
+	"github.com/artifact-opensource/spore/network"
+	"github.com/artifact-opensource/spore/shell"
+	"github.com/artifact-opensource/spore/tools"
 )
 
-const version = "0.1.0"
+const Version = "0.1.0"
+
 const banner = `
   ███████╗██╗   ██╗███╗   ███╗██████╗ ██╗ ██████╗ ████████╗███████╗
   ██╔════╝╚██╗ ██╔╝████╗ ████║██╔══██╗██║██╔═══██╗╚══██╔══╝██╔════╝
@@ -45,7 +43,7 @@ func main() {
 		runInteractive()
 	case "run":
 		if len(args) < 2 {
-			fatal("usage: symbiote run <prompt>")
+			fatal("usage: spore run <prompt>")
 		}
 		runOnce(strings.Join(args[1:], " "))
 
@@ -66,14 +64,14 @@ func main() {
 		runShell(args[1:])
 	case "exec":
 		if len(args) < 2 {
-			fatal("usage: symbiote exec <command>")
+			fatal("usage: spore exec <command>")
 		}
 		runExec(strings.Join(args[1:], " "))
 
 	// --- Memory ---
 	case "search":
 		if len(args) < 2 {
-			fatal("usage: symbiote search <query>")
+			fatal("usage: spore search <query>")
 		}
 		runSearch(strings.Join(args[1:], " "))
 	case "ingest":
@@ -96,7 +94,7 @@ func main() {
 		runPS()
 	case "kill":
 		if len(args) < 2 {
-			fatal("usage: symbiote kill <pid|name>")
+			fatal("usage: spore kill <pid|name>")
 		}
 		runKill(args[1])
 
@@ -110,16 +108,12 @@ func main() {
 	case "web":
 		runWeb(args[1:])
 
-	// --- Copilot ---
-	case "copilot":
-		runCopilot(args[1:])
-
 	// --- Discord ---
 	case "discord":
 		runDiscord(args[1:])
 
 	case "version":
-		fmt.Printf("symbiote %s (android)\n", version)
+		fmt.Printf("spore %s\n", Version)
 	case "help":
 		printHelp()
 
@@ -138,7 +132,7 @@ func runInteractive() {
 	agent := core.NewAgent(cfg, mem, t)
 
 	fmt.Fprint(os.Stderr, banner)
-	shell.Banner(version, cfg.Provider, cfg.Model)
+	shell.Banner(Version, cfg.Provider, cfg.Model)
 	shell.Chat(agent)
 }
 
@@ -186,21 +180,6 @@ func runStart(args []string) {
 	defer os.Remove(pidFile)
 
 	cfg := core.LoadConfig(configPath())
-
-	// Auto-start copilot proxy if provider is copilot
-	if cfg.Provider == "copilot" {
-		copilotPort := cfg.CopilotPort
-		if copilotPort == 0 {
-			copilotPort = 3000
-		}
-		proxy := copilot.New(copilotPort, dataPath())
-		go func() {
-			if err := proxy.ListenAndServe(); err != nil {
-				fmt.Printf("  copilot proxy error: %s\n", err)
-			}
-		}()
-		time.Sleep(200 * time.Millisecond)
-	}
 
 	mem := memory.New(dataPath())
 	t := tools.New(homePath())
@@ -302,22 +281,6 @@ func runServe(args []string) {
 	}
 	cfg := core.LoadConfig(configPath())
 
-	// Auto-start copilot proxy if provider is copilot
-	if cfg.Provider == "copilot" {
-		copilotPort := cfg.CopilotPort
-		if copilotPort == 0 {
-			copilotPort = 3000
-		}
-		proxy := copilot.New(copilotPort, dataPath())
-		go func() {
-			if err := proxy.ListenAndServe(); err != nil {
-				fmt.Printf("  copilot proxy error: %s\n", err)
-			}
-		}()
-		// Wait briefly for proxy to start
-		time.Sleep(200 * time.Millisecond)
-	}
-
 	mem := memory.New(dataPath())
 	t := tools.New(homePath())
 	agent := core.NewAgent(cfg, mem, t)
@@ -377,11 +340,11 @@ func runIngest(path string) {
 
 func runTunnel(args []string) {
 	if len(args) < 1 {
-		fatal("usage: symbiote tunnel <local:remote:host> | symbiote tunnel reverse <remote:local:host>")
+		fatal("usage: spore tunnel <local:remote:host> | spore tunnel reverse <remote:local:host>")
 	}
 	if args[0] == "reverse" {
 		if len(args) < 2 {
-			fatal("usage: symbiote tunnel reverse <remote:local:host>")
+			fatal("usage: spore tunnel reverse <remote:local:host>")
 		}
 		network.ReverseTunnel(args[1])
 	} else {
@@ -424,7 +387,7 @@ func runConfig(args []string) {
 		return
 	}
 	if len(args) < 2 {
-		fatal("usage: symbiote config <key> <value>")
+		fatal("usage: spore config <key> <value>")
 	}
 	cfg.Set(args[0], args[1])
 	cfg.Save(configPath())
@@ -438,7 +401,19 @@ func runStatus() {
 }
 
 func runSetup() {
-	core.Setup(homePath(), dataPath())
+	// Create data directory and default config
+	dp := dataPath()
+	os.MkdirAll(dp, 0755)
+	cp := configPath()
+	if _, err := os.Stat(cp); os.IsNotExist(err) {
+		cfg := core.DefaultConfig()
+		cfg.Save(cp)
+		fmt.Println("✓ Created default config at", cp)
+	} else {
+		fmt.Println("✓ Config already exists at", cp)
+	}
+	fmt.Println("✓ Data directory:", dp)
+	fmt.Println("\nRun 'spore config provider ollama' to set your provider.")
 }
 
 func runWeb(args []string) {
@@ -474,39 +449,6 @@ func runDiscord(args []string) {
 	}
 }
 
-func runCopilot(args []string) {
-	if len(args) == 0 {
-		args = []string{"start"}
-	}
-	switch args[0] {
-	case "auth":
-		auth := copilot.NewAuth(dataPath())
-		if err := auth.DeviceAuth(); err != nil {
-			fatal(err.Error())
-		}
-	case "start":
-		port := 3000
-		if len(args) > 1 {
-			fmt.Sscanf(args[1], "%d", &port)
-		}
-		proxy := copilot.New(port, dataPath())
-		if err := proxy.ListenAndServe(); err != nil {
-			fatal(err.Error())
-		}
-	case "health":
-		// Quick health check
-		resp, err := http.Get("http://127.0.0.1:3000/health")
-		if err != nil {
-			fatal("proxy not running: " + err.Error())
-		}
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Println(string(body))
-	default:
-		fatal("copilot: auth | start [port] | health")
-	}
-}
-
 // --- Paths (Termux-aware) ---
 
 func homePath() string {
@@ -522,7 +464,7 @@ func homePath() string {
 }
 
 func dataPath() string {
-	return filepath.Join(homePath(), ".symbiote")
+	return filepath.Join(homePath(), ".spore")
 }
 
 func configPath() string {
@@ -531,63 +473,57 @@ func configPath() string {
 
 func printHelp() {
 	fmt.Fprintf(os.Stderr, `
-  %s  symbiote for android — full agentic runtime
+  %s  spore for android — full agentic runtime
 
   %sstart / stop%s
-    symbiote start [port]      start everything (webchat + discord + copilot)
-    symbiote stop              stop spore
+    spore start [port]      start everything (webchat + discord)
+    spore stop              stop spore
 
   %sagent%s
-    symbiote                   interactive chat
-    symbiote run <prompt>      single-shot agent
-    symbiote chat              interactive mode
+    spore                   interactive chat
+    spore run <prompt>      single-shot agent
+    spore chat              interactive mode
 
   %sdaemon%s
-    symbiote daemon start      start background agent
-    symbiote daemon stop       stop daemon
-    symbiote daemon status     check daemon
-    symbiote daemon logs       tail daemon logs
-    symbiote serve [port]      HTTP API server (default: 8422)
-    symbiote web [port]        open webchat in browser
+    spore daemon start      start background agent
+    spore daemon stop       stop daemon
+    spore daemon status     check daemon
+    spore daemon logs       tail daemon logs
+    spore serve [port]      HTTP API server (default: 8422)
+    spore web [port]        open webchat in browser
 
   %sshell%s
-    symbiote sh                interactive shell with tools
-    symbiote exec <command>    run a command
+    spore sh                interactive shell with tools
+    spore exec <command>    run a command
 
   %smemory%s
-    symbiote search <query>    search indexed files
-    symbiote ingest [path]     index files
+    spore search <query>    search indexed files
+    spore ingest [path]     index files
 
   %snetwork%s
-    symbiote tunnel L:R:host   forward tunnel
-    symbiote tunnel reverse R:L:host   reverse tunnel
-    symbiote scan [target]     network scan (default: 192.168.1.0/24)
-    symbiote proxy [port]      SOCKS5 proxy (default: 1080)
+    spore tunnel L:R:host   forward tunnel
+    spore tunnel reverse R:L:host   reverse tunnel
+    spore scan [target]     network scan (default: 192.168.1.0/24)
+    spore proxy [port]      SOCKS5 proxy (default: 1080)
 
   %sprocess%s
-    symbiote ps                list managed processes
-    symbiote kill <pid|name>   kill a managed process
+    spore ps                list managed processes
+    spore kill <pid|name>   kill a managed process
 
   %sconfig%s
-    symbiote config            show config
-    symbiote config <k> <v>    set config value
-    symbiote setup             first-time setup
-    symbiote status            full system status
+    spore config            show config
+    spore config <k> <v>    set config value
+    spore setup             first-time setup
+    spore status            full system status
 
   %sproviders%s
-    symbiote config provider copilot     GitHub Copilot (default, built-in proxy)
-    symbiote config provider ollama      Ollama (local, toggle with: config ollama on)
-    symbiote config provider openai      OpenAI API
-    symbiote config provider anthropic   Anthropic API  
-    symbiote config provider local       llamafile
-    symbiote config provider custom      any OpenAI-compatible
+    spore config provider ollama       Ollama (local, recommended)
+    spore config provider openai       OpenAI API
+    spore config provider anthropic    Anthropic API  
+    spore config provider local        llamafile
+    spore config provider custom       any OpenAI-compatible
 
-  %scopilot%s
-    symbiote copilot auth       authenticate with GitHub
-    symbiote copilot start      start proxy standalone
-    symbiote copilot health     check proxy status
-
-`, banner, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset)
+`, banner, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset)
 }
 
 // --- Output helpers ---

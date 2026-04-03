@@ -1,4 +1,4 @@
-module github.com/artifact-virtual/symbiote-android
+module github.com/artifact-opensource/spore
 
 go 1.21
 

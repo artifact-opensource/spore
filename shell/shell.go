@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/artifact-virtual/symbiote-android/core"
+	"github.com/artifact-opensource/spore/core"
 )
 
 // ANSI
@@ -24,7 +24,7 @@ const (
 )
 
 func Banner(version, prov, model string) {
-	fmt.Fprintf(os.Stderr, "  %s%ssymbiote%s %sv%s%s", bold, purple, reset, dim, version, reset)
+	fmt.Fprintf(os.Stderr, "  %s%sspore%s %sv%s%s", bold, purple, reset, dim, version, reset)
 	fmt.Fprintf(os.Stderr, "  %s%s/%s%s\n", gray, prov, model, reset)
 	fmt.Fprintf(os.Stderr, "  %s%s%s\n", dim, strings.Repeat("─", 44), reset)
 	fmt.Fprintf(os.Stderr, "\n")
@@ -250,7 +250,7 @@ func execQuick(cmd string) string {
 
 // Interactive shell mode — drops into an enhanced shell
 func Interactive(home string) {
-	fmt.Fprintf(os.Stderr, "\n  %s%ssymbiote shell%s\n", bold, purple, reset)
+	fmt.Fprintf(os.Stderr, "\n  %s%sspore shell%s\n", bold, purple, reset)
 	fmt.Fprintf(os.Stderr, "  %stype 'exit' to return%s\n\n", dim, reset)
 
 	// Find the best shell
@@ -271,7 +271,7 @@ func Interactive(home string) {
 
 	// Fork into an interactive shell with our environment
 	env := os.Environ()
-	env = append(env, "SYMBIOTE=1", "TERM=xterm-256color")
+	env = append(env, "SPORE=1", "TERM=xterm-256color")
 
 	pa := os.ProcAttr{
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
@@ -286,5 +286,5 @@ func Interactive(home string) {
 	}
 
 	proc.Wait()
-	fmt.Fprintf(os.Stderr, "\n  %sback to symbiote%s\n\n", dim, reset)
+	fmt.Fprintf(os.Stderr, "\n  %sback to spore%s\n\n", dim, reset)
 }

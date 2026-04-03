@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/artifact-virtual/symbiote-android/core"
+	"github.com/artifact-opensource/spore/core"
 )
 
 const (
