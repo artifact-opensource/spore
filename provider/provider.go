@@ -11,6 +11,98 @@ import (
 	"time"
 )
 
+// ── Ollama Native API ────────────────────────────────────────────────────
+
+// OllamaModel represents a model returned by Ollama's /api/tags endpoint.
+type OllamaModel struct {
+	Name       string    `json:"name"`
+	Model      string    `json:"model"`
+	ModifiedAt time.Time `json:"modified_at"`
+	Size       int64     `json:"size"`
+	Digest     string    `json:"digest"`
+}
+
+// OllamaListModels queries the Ollama native API for available models.
+// baseURL should be the Ollama server address (e.g. http://127.0.0.1:11434).
+func OllamaListModels(baseURL string) ([]OllamaModel, error) {
+	url := strings.TrimRight(baseURL, "/") + "/api/tags"
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("ollama list models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama list models: status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Models []OllamaModel `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("ollama list models: decode: %w", err)
+	}
+	return result.Models, nil
+}
+
+// OllamaPullModel pulls (downloads) a model from the Ollama registry.
+// This is a blocking call — it waits for the pull to complete.
+// progressFn is called with status updates if non-nil.
+func OllamaPullModel(baseURL, modelName string, progressFn func(status string, completed, total int64)) error {
+	url := strings.TrimRight(baseURL, "/") + "/api/pull"
+	payload, _ := json.Marshal(map[string]interface{}{
+		"name":   modelName,
+		"stream": true,
+	})
+
+	client := &http.Client{Timeout: 30 * time.Minute} // models can be large
+	resp, err := client.Post(url, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("ollama pull: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ollama pull: status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Stream NDJSON progress
+	decoder := json.NewDecoder(resp.Body)
+	for decoder.More() {
+		var line struct {
+			Status    string `json:"status"`
+			Digest    string `json:"digest"`
+			Total     int64  `json:"total"`
+			Completed int64  `json:"completed"`
+			Error     string `json:"error"`
+		}
+		if err := decoder.Decode(&line); err != nil {
+			break
+		}
+		if line.Error != "" {
+			return fmt.Errorf("ollama pull: %s", line.Error)
+		}
+		if progressFn != nil {
+			progressFn(line.Status, line.Completed, line.Total)
+		}
+	}
+	return nil
+}
+
+// OllamaIsAvailable checks if Ollama is reachable at the given base URL.
+func OllamaIsAvailable(baseURL string) bool {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(strings.TrimRight(baseURL, "/") + "/api/tags")
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
 // ── Types ────────────────────────────────────────────────────────────────
 
 type Message struct {

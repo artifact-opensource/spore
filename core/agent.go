@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/artifact-virtual/symbiote-android/provider"
-	"github.com/artifact-virtual/symbiote-android/tools"
+	"github.com/artifact-opensource/spore/provider"
+	"github.com/artifact-opensource/spore/tools"
 )
 
 type MemoryStats struct {
@@ -56,7 +56,7 @@ func NewAgent(cfg *Config, mem MemoryBackend, t *tools.Toolbox) *Agent {
 		if dataDir == "" {
 			dataDir = "/tmp"
 		}
-		dataDir = filepath.Join(dataDir, ".symbiote")
+		dataDir = filepath.Join(dataDir, ".spore")
 	}
 
 	return &Agent{
@@ -289,6 +289,55 @@ func (a *Agent) executeTool(name string, args map[string]interface{}) string {
 			}
 		}
 		return a.tools.MacroFireWith(trigger, vars)
+
+	case "ollama_list_models":
+		baseURL := "http://127.0.0.1:11434"
+		if v, ok := args["base_url"].(string); ok && v != "" {
+			baseURL = v
+		}
+		models, err := provider.OllamaListModels(baseURL)
+		if err != nil {
+			return fmt.Sprintf("error: %v", err)
+		}
+		if len(models) == 0 {
+			return "no models found — run ollama_pull_model to download one"
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("found %d model(s):\n", len(models)))
+		for _, m := range models {
+			size := float64(m.Size) / (1024 * 1024 * 1024)
+			sb.WriteString(fmt.Sprintf("  • %s (%.1f GB)\n", m.Name, size))
+		}
+		return sb.String()
+
+	case "ollama_pull_model":
+		modelName, _ := args["model"].(string)
+		if modelName == "" {
+			return "error: 'model' parameter required (e.g. 'llama3.2', 'qwen2.5-coder')"
+		}
+		baseURL := "http://127.0.0.1:11434"
+		if v, ok := args["base_url"].(string); ok && v != "" {
+			baseURL = v
+		}
+		err := provider.OllamaPullModel(baseURL, modelName, nil)
+		if err != nil {
+			return fmt.Sprintf("error pulling %s: %v", modelName, err)
+		}
+		return fmt.Sprintf("✓ model '%s' pulled successfully", modelName)
+
+	case "ollama_status":
+		baseURL := "http://127.0.0.1:11434"
+		if v, ok := args["base_url"].(string); ok && v != "" {
+			baseURL = v
+		}
+		if provider.OllamaIsAvailable(baseURL) {
+			models, err := provider.OllamaListModels(baseURL)
+			if err != nil {
+				return fmt.Sprintf("ollama is running at %s but model listing failed: %v", baseURL, err)
+			}
+			return fmt.Sprintf("ollama is running at %s — %d model(s) available", baseURL, len(models))
+		}
+		return fmt.Sprintf("ollama is not reachable at %s", baseURL)
 
 	default:
 		return fmt.Sprintf("unknown tool: %s", name)

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/artifact-virtual/symbiote-android/provider"
+	"github.com/artifact-opensource/spore/provider"
 )
 
 type Config struct {
@@ -29,8 +29,9 @@ type Config struct {
 	DiscordPrefix string `json:"discord_prefix,omitempty"`
 
 	// Identity
-	DeviceName string `json:"device_name,omitempty"`
-	DeviceID   string `json:"device_id,omitempty"`
+	DeviceName  string `json:"device_name,omitempty"`
+	DeviceID    string `json:"device_id,omitempty"`
+	AutoConnect string `json:"auto_connect,omitempty"`
 
 	path string
 }

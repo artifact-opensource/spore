@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/artifact-virtual/symbiote-android/core"
+	"github.com/artifact-opensource/spore/core"
 )
 
 const pidFile = "daemon.pid"
@@ -51,7 +51,7 @@ func Start(cfg *core.Config, dataDir string) {
 		fmt.Print(line)
 	}
 
-	log("symbiote daemon starting")
+	log("spore daemon starting")
 	log(fmt.Sprintf("pid: %d", os.Getpid()))
 	log(fmt.Sprintf("provider: %s/%s", cfg.Provider, cfg.Model))
 

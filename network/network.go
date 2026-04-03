@@ -15,7 +15,7 @@ import (
 func ForwardTunnel(spec string) {
 	parts := strings.Split(spec, ":")
 	if len(parts) < 3 {
-		fmt.Println("  usage: symbiote tunnel local_port:remote_port:host [ssh_target]")
+		fmt.Println("  usage: spore tunnel local_port:remote_port:host [ssh_target]")
 		return
 	}
 
@@ -47,7 +47,7 @@ func ForwardTunnel(spec string) {
 func ReverseTunnel(spec string) {
 	parts := strings.Split(spec, ":")
 	if len(parts) < 2 {
-		fmt.Println("  usage: symbiote tunnel reverse remote_port:local_port[:ssh_target]")
+		fmt.Println("  usage: spore tunnel reverse remote_port:local_port[:ssh_target]")
 		return
 	}
 

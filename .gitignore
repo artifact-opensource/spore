@@ -1,3 +1,4 @@
 spore
 spore-*
 *.exe
+dist/

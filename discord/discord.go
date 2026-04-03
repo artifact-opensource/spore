@@ -15,7 +15,7 @@ import (
 
 	"nhooyr.io/websocket"
 
-	"github.com/artifact-virtual/symbiote-android/core"
+	"github.com/artifact-opensource/spore/core"
 )
 
 // customDialer uses Google/Cloudflare DNS instead of system resolver

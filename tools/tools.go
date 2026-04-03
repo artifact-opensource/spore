@@ -259,6 +259,10 @@ func (t *Toolbox) Definitions() []ToolDef {
 
 	// Append Android-specific tools
 	defs = append(defs, AndroidToolDefs()...)
+
+	// Append Ollama tools
+	defs = append(defs, OllamaToolDefs()...)
+
 	return defs
 }
 
@@ -508,5 +512,64 @@ func humanSize(b int64) string {
 		return fmt.Sprintf("%.1fK", float64(b)/float64(1<<10))
 	default:
 		return fmt.Sprintf("%dB", b)
+	}
+}
+
+// OllamaToolDefs returns tool definitions for Ollama management.
+func OllamaToolDefs() []ToolDef {
+	return []ToolDef{
+		{
+			Type: "function",
+			Function: ToolDefFunc{
+				Name:        "ollama_list_models",
+				Description: "List all models available in the local Ollama instance.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"base_url": map[string]interface{}{
+							"type":        "string",
+							"description": "Ollama server URL (default: http://127.0.0.1:11434)",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: ToolDefFunc{
+				Name:        "ollama_pull_model",
+				Description: "Download a model from the Ollama registry. Example models: llama3.2, qwen2.5-coder, gemma2, phi3, mistral.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"model": map[string]interface{}{
+							"type":        "string",
+							"description": "Model name to pull (e.g. 'llama3.2', 'qwen2.5-coder:7b')",
+						},
+						"base_url": map[string]interface{}{
+							"type":        "string",
+							"description": "Ollama server URL (default: http://127.0.0.1:11434)",
+						},
+					},
+					"required": []string{"model"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: ToolDefFunc{
+				Name:        "ollama_status",
+				Description: "Check if Ollama is running and how many models are available.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"base_url": map[string]interface{}{
+							"type":        "string",
+							"description": "Ollama server URL (default: http://127.0.0.1:11434)",
+						},
+					},
+				},
+			},
+		},
 	}
 }

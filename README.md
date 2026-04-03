@@ -1,131 +1,259 @@
-# SYMBIOTE: Spore 
+<div align="center">
 
-Portable agentic runtime for Android via Termux. Single binary, zero dependencies, full shell control.
+# SYMBIOTE: Spore
 
-## What It Does
+**Autonomous AI agent in a single binary.**
 
-- **Full agentic AI runtime** on your phone — tool use, shell commands, file ops, memory search
-- **Background daemon** with auto-start on boot via Termux:Boot
-- **HTTP API server** for remote control from any device on the network
-- **SSH tunnels** — forward and reverse, connect back to Dragonfly
-- **Network scanning** — nmap when available, pure Go fallback
-- **SOCKS5 proxy** — route traffic through the phone
-- **BM25 memory search** — index and search files locally
-- **Process management** — spawn, monitor, kill background processes
-- **Android integration** — battery, notifications, storage via Termux:API
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/artifact-opensource/spore?color=green)](https://github.com/artifact-opensource/spore/releases)
+[![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20macOS%20%7C%20Android%20%7C%20Windows-lightgrey)]()
 
-## Install
+*Runs from a flash drive. Runs on Android. Runs anywhere.*
 
-```bash
-# In Termux:
-bash install.sh
-```
+A portable AI agent runtime — one binary, zero dependencies, full tool loop. Part of the [Symbiote](https://github.com/artifact-opensource/symbiote) family.
+
+---
+
+</div>
+
+## What Is Spore
+
+Spore is a single-binary AI agent that carries its own brain. Plug in a USB drive, run `./spore`, and you have a fully autonomous agent with tool calling, persistent memory, web chat, and Discord integration — on any machine, any OS, any architecture.
+
+**Symbiote** is the full agent runtime (multi-provider gateway, orchestration, channels). **Spore** is Symbiote compressed into one portable executable.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Single binary** | One file. No Python, no Node, no Docker, no dependencies. |
+| **Multi-provider** | Ollama, llamafile, OpenAI, Anthropic, Gemini, Grok, OpenRouter, HuggingFace — or any OpenAI-compatible endpoint. |
+| **Agentic tool loop** | The agent reasons, calls tools, observes results, and iterates autonomously. |
+| **Portable memory** | Persistent file-backed memory travels with the binary on a flash drive. |
+| **Web chat** | Built-in HTTP daemon with embedded chat UI. |
+| **Discord bot** | Full Discord integration — runs as a bot in your server. |
+| **Android native** | MacDroid integration, ADB bridge, device management tools. |
+| **Ollama native** | List models, pull models, check status — manages your local Ollama instance. |
+| **Network discovery** | Scans local network for LLM servers (Ollama, llamafile). |
+| **Shell execution** | Sandboxed shell tool with timeout and output capture. |
+| **Cross-platform** | Compiles to Linux x86-64, Linux ARM64, Windows x86-64, macOS. |
+| **Zero config** | Works out of the box. Optional config for advanced setups. |
 
 ## Quick Start
 
 ```bash
-# Interactive chat
-symbiote
+# Download the latest release for your platform
+curl -LO https://github.com/artifact-opensource/spore/releases/latest/download/spore-linux-amd64
+chmod +x spore-linux-amd64
 
-# Single-shot
-symbiote run "list all files in my home directory"
+# Interactive chat (auto-discovers local Ollama or llamafile)
+./spore-linux-amd64
 
-# Background daemon
-symbiote daemon start
+# Or specify a provider
+./spore-linux-amd64 --provider ollama --model llama3.2
 
-# HTTP API
-symbiote serve 8422
+# Web chat daemon
+./spore-linux-amd64 --mode serve --port 8080
 
-# Connect to Dragonfly
-symbiote config provider copilot
-symbiote config base_url http://192.168.1.13:3000
-symbiote config model gpt-4o
+# Discord bot
+./spore-linux-amd64 --mode discord --token YOUR_BOT_TOKEN
 ```
 
-## Architecture
-
-```
-symbiote (5.7 MB ARM64 binary)
-├── core/       agent loop + config
-├── provider/   OpenAI, Anthropic, Copilot, local, custom
-├── tools/      exec, read, write, edit, search, web_fetch, processes, notify
-├── memory/     BM25 full-text search + document index
-├── daemon/     background service + HTTP API
-├── network/    SSH tunnels, port scanning, SOCKS5 proxy
-└── shell/      interactive terminal + shell passthrough
-```
-
-## Binary Targets
-
-| Target | File | Size |
-|--------|------|------|
-| Android ARM64 (phone/tablet) | `symbiote-android-arm64` | 5.7 MB |
-| Android x86_64 (emulator) | `symbiote-android-x86_64` | 5.8 MB |
-| Linux ARM64 (Chromebook) | `symbiote-linux-arm64` | 5.2 MB |
-
-## Data Layout
-
-```
-~/.symbiote/
-├── config.json     provider, model, device settings
-├── memory/
-│   └── index.json  BM25 search index
-├── logs/
-│   └── daemon.log
-└── processes/
-```
-
-## Tools (12)
-
-| Tool | Description |
-|------|-------------|
-| `exec` | Run any shell command (full Termux access) |
-| `read` | Read files with offset/limit |
-| `write` | Write files, auto-create dirs |
-| `edit` | Surgical find-and-replace |
-| `search` | BM25 memory search |
-| `web_fetch` | HTTP GET with size limits |
-| `list` | Directory listing |
-| `processes` | List running processes |
-| `kill_process` | Kill by PID or name |
-| `env` | Show environment |
-| `device_info` | Battery, storage, network, IP |
-| `notify` | Android notification via Termux:API |
-
-## Network Features
+### Build From Source
 
 ```bash
-# Forward tunnel (access remote service locally)
-symbiote tunnel 8080:80:example.com
+git clone https://github.com/artifact-opensource/spore.git
+cd spore
+go build -o spore -ldflags="-s -w" .
+```
 
-# Reverse tunnel (let Dragonfly reach your phone)
-symbiote tunnel reverse 9422:8422:adam@192.168.1.13
+### Cross-Compile
 
-# Network scan
-symbiote scan 192.168.1.0/24
-symbiote scan 192.168.1.13
+```bash
+# ARM64 (Android, Raspberry Pi, Apple Silicon)
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o spore-arm64 -ldflags="-s -w" .
 
-# SOCKS5 proxy
-symbiote proxy 1080
+# Windows
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o spore.exe -ldflags="-s -w" .
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o spore-darwin-arm64 -ldflags="-s -w" .
 ```
 
 ## Providers
 
-| Provider | Config |
-|----------|--------|
-| Local (llamafile) | `symbiote config provider local` |
-| OpenAI | `symbiote config provider openai` + api_key |
-| Anthropic | `symbiote config provider anthropic` + api_key |
-| Copilot proxy | `symbiote config provider copilot` |
-| Any OpenAI-compatible | `symbiote config provider custom` + base_url |
+Spore connects to any LLM backend. Local-first by default — falls back to cloud providers if configured.
 
-## Requirements
+| Provider | Type | Default Endpoint |
+|----------|------|-----------------|
+| **Ollama** | Local | `http://127.0.0.1:11434` |
+| **llamafile** | Local | `http://127.0.0.1:8080` |
+| **OpenAI** | Cloud | `https://api.openai.com` |
+| **Anthropic** | Cloud | `https://api.anthropic.com` |
+| **Gemini** | Cloud | `https://generativelanguage.googleapis.com` |
+| **Grok** | Cloud | `https://api.x.ai` |
+| **OpenRouter** | Cloud | `https://openrouter.ai/api` |
+| **HuggingFace** | Cloud | `https://api-inference.huggingface.co` |
+| **Custom** | Any | User-defined endpoint |
 
-- Android device with [Termux](https://f-droid.org/packages/com.termux/)
-- Optional: [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) for auto-start
-- Optional: [Termux:API](https://f-droid.org/packages/com.termux.api/) for notifications/device info
+### Ollama Integration
 
-## Part of Symbiote
+Spore has native Ollama support beyond the standard OpenAI-compatible chat endpoint:
 
-Built as part of the larger Symbiote ecosystem. Enabled clustering and compute sharing for multiplayer jobs.
-Many spores can be set up and controlled by the main Symbiant. Each spore is also a standalone system. 
+```bash
+# Auto-discovers local Ollama
+./spore --provider ollama
+
+# The agent can manage Ollama directly via tools:
+# - ollama_list_models  — list available models
+# - ollama_pull_model   — download new models
+# - ollama_status       — check if Ollama is running
+```
+
+## Tools
+
+The agent has access to a full toolbox. Tools are exposed to the LLM as function calls.
+
+### Core
+
+| Tool | Description |
+|------|-------------|
+| `shell` | Execute shell commands with timeout and output capture |
+| `read_file` | Read file contents |
+| `write_file` | Write content to a file |
+| `list_dir` | List directory contents with metadata |
+| `search_files` | Search files by name pattern |
+| `http_request` | Make HTTP requests |
+| `notify` | Send system notifications |
+| `brightness` | Control screen brightness |
+
+### Memory
+
+| Tool | Description |
+|------|-------------|
+| `memory_store` | Store a key-value pair in persistent memory |
+| `memory_recall` | Recall a value by key |
+| `memory_search` | Search memory by semantic query |
+| `memory_list` | List all memory keys |
+| `memory_forget` | Remove a key from memory |
+
+### Ollama
+
+| Tool | Description |
+|------|-------------|
+| `ollama_list_models` | List all models in the local Ollama instance |
+| `ollama_pull_model` | Download a model from the Ollama registry |
+| `ollama_status` | Check Ollama availability and model count |
+
+### Android / MacDroid
+
+| Tool | Description |
+|------|-------------|
+| `device_list` | List connected Android devices |
+| `device_info` | Get device details (model, OS, storage) |
+| `file_push` | Push files to Android device |
+| `file_pull` | Pull files from Android device |
+| `file_list` | List files on Android device |
+| `app_list` | List installed apps |
+| `app_install` | Install APK on device |
+| `screenshot` | Capture device screenshot |
+| `screen_record` | Record device screen |
+
+### Network
+
+| Tool | Description |
+|------|-------------|
+| `network_scan` | Scan local network for LLM servers |
+| `network_info` | Get local network interface info |
+
+## Modes
+
+| Mode | Flag | Description |
+|------|------|-------------|
+| **Chat** | `--mode chat` (default) | Interactive terminal chat |
+| **Serve** | `--mode serve` | HTTP daemon with embedded web chat UI |
+| **Discord** | `--mode discord` | Discord bot |
+| **Daemon** | `--mode daemon` | Background daemon (all channels) |
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────┐
+│                    main.go                        │
+│          CLI, flags, mode routing                 │
+├──────────┬───────────┬───────────┬───────────────┤
+│  core/   │ provider/ │  tools/   │   daemon/     │
+│  agent   │  multi-   │  shell    │   HTTP +      │
+│  loop    │  provider │  files    │   webchat     │
+│  config  │  Ollama   │  android  │               │
+│  session │  cloud    │  network  │               │
+├──────────┤  local    │  memory   ├───────────────┤
+│ memory/  │           │  ollama   │  discord/     │
+│ persist  │           │           │  bot adapter  │
+├──────────┤           │           ├───────────────┤
+│ network/ │           │           │  shell/       │
+│ scanner  │           │           │  sandboxed    │
+└──────────┴───────────┴───────────┴───────────────┘
+```
+
+## Configuration
+
+Spore works with zero config. For advanced setups, create `~/.spore/workspace/config.json`:
+
+```json
+{
+  "provider": "ollama",
+  "model": "llama3.2",
+  "base_url": "http://127.0.0.1:11434",
+  "api_key": "",
+  "system_prompt": "You are a helpful assistant.",
+  "max_iterations": 25,
+  "temperature": 0.7,
+  "discord_token": "",
+  "serve_port": 8080
+}
+```
+
+All fields are optional. CLI flags override config file values.
+
+## Flash Drive Setup
+
+The whole point of Spore — carry your AI agent on a USB stick:
+
+```
+USB Drive/
+├── spore-linux-amd64      # Linux binary
+├── spore-darwin-arm64     # macOS binary
+├── spore.exe              # Windows binary
+├── .spore/
+│   └── workspace/
+│       ├── config.json    # Your config
+│       └── memory.json    # Persistent memory (travels with you)
+└── models/                # Optional: carry llamafile models
+    └── llama-3.2-3b.gguf
+```
+
+Plug in anywhere. Run. Your agent, your memory, your config — portable.
+
+## The Symbiote Family
+
+| Project | Description |
+|---------|-------------|
+| [**Symbiote**](https://github.com/artifact-opensource/symbiote) | Full agent runtime — multi-provider gateway, orchestration, channels |
+| [**Spore**](https://github.com/artifact-opensource/spore) | Portable single-binary agent — this project |
+| [**Singularity**](https://github.com/artifact-opensource/singularity) | Enterprise orchestration — multi-agent, C-Suite dispatch, self-optimization |
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Built by [Artifact Virtual](https://artifactvirtual.com)
+
+**One binary. Zero dependencies. Full autonomy.**
+
+</div>
