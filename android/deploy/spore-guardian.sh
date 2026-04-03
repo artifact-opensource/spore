@@ -1,11 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # spore-guardian.sh — Self-healing daemon for Spore on Android
-# Runs at boot, restarts on crash, maintains SSH tunnel to Dragonfly
+# Spore has its own embedded copilot proxy — no SSH tunnel needed
 
 SPORE_BIN="$HOME/bin/spore"
 SPORE_PORT=8422
-DRAGONFLY="adam@192.168.1.13"
-TUNNEL_PORT=3000
 LOG="$HOME/.symbiote/logs/guardian.log"
 PIDFILE="$HOME/.symbiote/guardian.pid"
 
@@ -31,22 +29,14 @@ log "Guardian started (pid $$)"
 termux-wake-lock 2>/dev/null
 log "Wake lock acquired"
 
-# Function: ensure SSH tunnel to Dragonfly copilot proxy
-ensure_tunnel() {
-    if ! pgrep -f "ssh.*-L.*${TUNNEL_PORT}:127.0.0.1:${TUNNEL_PORT}" >/dev/null 2>&1; then
-        log "Starting SSH tunnel to Dragonfly:${TUNNEL_PORT}"
-        ssh -f -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-            -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
-            -L ${TUNNEL_PORT}:127.0.0.1:${TUNNEL_PORT} ${DRAGONFLY} 2>>"$LOG"
-        if [ $? -eq 0 ]; then
-            log "Tunnel established"
-        else
-            log "Tunnel failed — will retry in 30s"
-        fi
-    fi
-}
+# Kill leftover SSH tunnels (no longer needed)
+pkill -f "ssh.*-L.*3000:127.0.0.1:3000" 2>/dev/null
 
-# Function: ensure sshd is running
+# Kill orphan sleep/bash loops from previous sessions
+pkill -f "while true; do sleep" 2>/dev/null
+pkill -f "sleep 300" 2>/dev/null
+log "Cleaned up orphan processes"
+
 ensure_sshd() {
     if ! pgrep sshd >/dev/null 2>&1; then
         log "Starting sshd"
@@ -54,13 +44,11 @@ ensure_sshd() {
     fi
 }
 
-# Function: ensure Spore is running
 ensure_spore() {
     if ! pgrep -f "spore start" >/dev/null 2>&1; then
         log "Starting Spore"
         nohup "$SPORE_BIN" start "$SPORE_PORT" >> "$HOME/.symbiote/logs/start.log" 2>&1 &
         sleep 3
-        # Verify it's up
         if curl -s "http://127.0.0.1:${SPORE_PORT}/health" >/dev/null 2>&1; then
             log "Spore started successfully"
         else
@@ -69,10 +57,8 @@ ensure_spore() {
     fi
 }
 
-# Main loop — check every 30 seconds
 while true; do
     ensure_sshd
-    ensure_tunnel
     ensure_spore
     sleep 30
 done

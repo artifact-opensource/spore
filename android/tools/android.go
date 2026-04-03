@@ -5,6 +5,38 @@ import (
 	"strings"
 )
 
+// --- App activity mappings for direct launch via am start ---
+// These bypass monkey and properly foreground the app
+
+var appActivities = map[string]string{
+	"com.android.chrome":                  "com.android.chrome/com.google.android.apps.chrome.Main",
+	"com.android.settings":                "com.android.settings/.Settings",
+	"com.google.android.apps.nbu.files":   "com.google.android.apps.nbu.files/.home.HomeActivity",
+	"com.sec.android.app.myfiles":         "com.sec.android.app.myfiles/.common.MainActivity",
+	"com.google.android.youtube":          "com.google.android.youtube/.HomeActivity",
+	"com.google.android.apps.maps":        "com.google.android.apps.maps/com.google.android.maps.MapsActivity",
+	"com.google.android.gm":              "com.google.android.gm/.ConversationListActivityGmail",
+	"com.whatsapp":                        "com.whatsapp/.Main",
+	"org.telegram.messenger":              "org.telegram.messenger/org.telegram.ui.LaunchActivity",
+	"com.twitter.android":                 "com.twitter.android/.StartActivity",
+	"com.facebook.katana":                 "com.facebook.katana/.LoginActivity",
+	"com.instagram.android":               "com.instagram.android/.activity.MainTabActivity",
+	"com.spotify.music":                   "com.spotify.music/.MainActivity",
+	"com.discord":                         "com.discord/.main.MainActivity",
+	"com.Slack":                           "com.Slack/.ui.HomeActivity",
+	"com.termux":                          "com.termux/.app.TermuxActivity",
+	"com.arlosoft.macrodroid":             "com.arlosoft.macrodroid/.homescreen.NewHomeScreenActivity",
+	"com.sec.android.app.camera":          "com.sec.android.app.camera/.Camera",
+	"com.samsung.android.dialer":          "com.samsung.android.dialer/.DialtactsActivity",
+	"com.samsung.android.messaging":       "com.samsung.android.messaging/.ui.view.main.MainActivityStart",
+	"com.samsung.android.calendar":        "com.samsung.android.calendar/.CalendarActivity",
+	"com.sec.android.app.clockpackage":    "com.sec.android.app.clockpackage/.ClockPackage",
+	"com.reddit.frontpage":                "com.reddit.frontpage/.StartActivity",
+	"com.netflix.mediaclient":             "com.netflix.mediaclient/.ui.launch.UIWebViewActivity",
+	"com.microsoft.office.outlook":        "com.microsoft.office.outlook/.MainActivity",
+	"com.exness.investor":                 "com.exness.investor/.ui.splash.SplashActivity",
+}
+
 // --- App name lookup table ---
 
 var appNames = map[string]string{
@@ -190,13 +222,49 @@ func (t *Toolbox) Sensor(sensor string, limit int) string {
 
 // ==================== App Management ====================
 
+// knownActivities maps common app names to their launch components
+// Using am start -n <component> properly foregrounds the app on screen
+var knownActivities = map[string]string{
+	"com.android.chrome":                 "com.android.chrome/com.google.android.apps.chrome.Main",
+	"com.android.settings":               "com.android.settings/.Settings",
+	"com.google.android.youtube":         "com.google.android.youtube/.HomeActivity",
+	"com.google.android.apps.nbu.files":  "com.google.android.apps.nbu.files/.home.HomeActivity",
+	"com.google.android.apps.maps":       "com.google.android.apps.maps/.MapsActivity",
+	"com.google.android.gm":              "com.google.android.gm/.GmailActivity",
+	"com.google.android.apps.messaging":  "com.google.android.apps.messaging/.ui.ConversationListActivity",
+	"com.google.android.dialer":          "com.google.android.dialer/.extensions.GoogleDialtactsActivity",
+	"com.google.android.apps.photos":     "com.google.android.apps.photos/.home.HomeActivity",
+	"com.google.android.calendar":        "com.google.android.calendar/.AllInOneActivity",
+	"com.google.android.deskclock":       "com.google.android.deskclock/.DeskClock",
+	"com.google.android.calculator":      "com.google.android.calculator/.Calculator",
+	"com.google.android.contacts":        "com.google.android.contacts/.activities.PeopleActivity",
+	"com.whatsapp":                        "com.whatsapp/.HomeActivity",
+	"com.instagram.android":               "com.instagram.android/.activity.MainTabActivity",
+	"com.twitter.android":                 "com.twitter.android/.StartActivity",
+	"com.facebook.katana":                 "com.facebook.katana/.LoginActivity",
+	"com.spotify.music":                   "com.spotify.music/.MainActivity",
+	"com.termux":                           "com.termux/.app.TermuxActivity",
+	"org.telegram.messenger":              "org.telegram.messenger/.DefaultIcon",
+	"com.samsung.android.app.notes":       "com.samsung.android.app.notes/.main.MainActivity",
+}
+
 func (t *Toolbox) AppLaunch(name string) string {
 	pkg := resolveApp(name)
-	// Use monkey to launch the app's default activity
+
+	// Try known activity mapping first — this properly foregrounds
+	if activity, ok := knownActivities[pkg]; ok {
+		cmd := fmt.Sprintf("am start -n %s 2>&1", activity)
+		result := t.ExecTimeout(cmd, 10)
+		if !strings.Contains(result, "Error") && !strings.Contains(result, "error") {
+			return fmt.Sprintf("launched %s (%s)", name, pkg)
+		}
+	}
+
+	// Fallback: monkey (works for most apps but may not foreground reliably)
 	cmd := fmt.Sprintf("monkey -p %s -c android.intent.category.LAUNCHER 1 2>&1", pkg)
 	result := t.ExecTimeout(cmd, 10)
 	if strings.Contains(result, "No activities found") {
-		// Fallback: try am start with MAIN/LAUNCHER
+		// Last resort: am start with category
 		cmd = fmt.Sprintf("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER $(pm resolve-activity --brief %s 2>/dev/null | tail -1) 2>&1", pkg)
 		result = t.ExecTimeout(cmd, 10)
 	}

@@ -127,7 +127,8 @@ async function loadSessions(){
     const d=await r.json();
     activeSessionId=d.active||null;
     renderSessions(d.sessions||[]);
-  }catch(e){console.error('sessions:',e)}
+    return d;
+  }catch(e){console.error('sessions:',e);return {}}
 }
 
 function renderSessions(list){
@@ -159,7 +160,6 @@ async function newSession(){
 }
 
 async function switchSession(id){
-  if(id===activeSessionId)return;
   try{
     const r=await fetch('/api/sessions/'+id);
     const d=await r.json();
@@ -275,9 +275,27 @@ setInterval(async()=>{
   catch(e){dot.style.background='#ef4444';statusText.textContent='disconnected'}
 },15000);
 
-// Init: load sessions, hide sidebar on mobile
+// Init: load sessions, auto-resume active, hide sidebar on mobile
 if(window.innerWidth<=600)sidebar.classList.add('hidden');
-loadSessions();
+loadSessions().then(()=>{
+  if(activeSessionId){
+    // Auto-load the active session's messages without requiring a click
+    fetch('/api/sessions/'+activeSessionId).then(r=>r.json()).then(d=>{
+      if(d.id){
+        chatTitle.textContent=d.title||'Spore';
+        msgs.innerHTML='';
+        (d.messages||[]).forEach(m=>{
+          if(m.role==='user')addMsg(m.content,'user');
+          else if(m.role==='assistant')addMsg(m.content,'bot');
+        });
+        if(msgs.children.length===0){
+          msgs.innerHTML='<div class="msg system">session resumed — continue the conversation</div>';
+        }
+        msgs.scrollTop=msgs.scrollHeight;
+      }
+    }).catch(()=>{});
+  }
+});
 </script>
 </body>
 </html>` + "`"

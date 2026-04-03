@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -273,6 +274,9 @@ func (t *Toolbox) ExecTimeout(command string, timeout int) string {
 	cmd := exec.Command(shell, "-c", command)
 	cmd.Dir = t.home
 
+	// Create new process group so we can kill all children on timeout
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	// Termux environment
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -291,7 +295,10 @@ func (t *Toolbox) ExecTimeout(command string, timeout int) string {
 	case <-done:
 		// completed
 	case <-time.After(time.Duration(timeout) * time.Second):
-		cmd.Process.Kill()
+		// Kill entire process group (negative PID) to prevent zombie children
+		if cmd.Process != nil {
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
 		return fmt.Sprintf("[timeout after %ds]", timeout)
 	}
 
