@@ -125,6 +125,7 @@ symbiote proxy 1080
 - Optional: [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) for auto-start
 - Optional: [Termux:API](https://f-droid.org/packages/com.termux.api/) for notifications/device info
 
-## Part of Artifact Virtual
+## Part of Symbiote
 
-Built by AVA. Sibling to [Spore](../agent/) (desktop) and [Mach6](https://github.com/artifact-opensource/symbiote) (enterprise).
+Built as part of the larger Symbiote ecosystem. Enabled clustering and compute sharing for multiplayer jobs.
+Many spores can be set up and controlled by the main Symbiant. Each spore is also a standalone system. 
