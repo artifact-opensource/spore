@@ -339,7 +339,7 @@ func (b *Bot) sendMessage(channelID, content string) error {
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bot "+b.token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Spore (https://github.com/artifact-virtual, 0.1)")
+	req.Header.Set("User-Agent", "Spore (https://github.com/artifact-opensource/spore, 1.0)")
 
 	resp, err := customHTTPClient.Do(req)
 	if err != nil {
@@ -359,6 +359,6 @@ func (b *Bot) sendTyping(channelID string) {
 	url := fmt.Sprintf("%s/channels/%s/typing", apiBase, channelID)
 	req, _ := http.NewRequest("POST", url, nil)
 	req.Header.Set("Authorization", "Bot "+b.token)
-	req.Header.Set("User-Agent", "Spore (https://github.com/artifact-virtual, 0.1)")
+	req.Header.Set("User-Agent", "Spore (https://github.com/artifact-opensource/spore, 1.0)")
 	customHTTPClient.Do(req)
 }

@@ -19,7 +19,7 @@ func ForwardTunnel(spec string) {
 		return
 	}
 
-	sshTarget := "dragonfly"
+	sshTarget := "localhost"
 	if len(parts) > 3 {
 		sshTarget = parts[3]
 	}
@@ -51,7 +51,7 @@ func ReverseTunnel(spec string) {
 		return
 	}
 
-	sshTarget := "dragonfly"
+	sshTarget := "localhost"
 	if len(parts) > 2 {
 		sshTarget = parts[2]
 	}

@@ -353,7 +353,7 @@ func runTunnel(args []string) {
 }
 
 func runScan(args []string) {
-	target := "192.168.1.0/24"
+	target := "auto"
 	if len(args) > 0 {
 		target = args[0]
 	}
@@ -503,7 +503,7 @@ func printHelp() {
   %snetwork%s
     spore tunnel L:R:host   forward tunnel
     spore tunnel reverse R:L:host   reverse tunnel
-    spore scan [target]     network scan (default: 192.168.1.0/24)
+    spore scan [target]     network scan (default: auto-detect local subnet)
     spore proxy [port]      SOCKS5 proxy (default: 1080)
 
   %sprocess%s

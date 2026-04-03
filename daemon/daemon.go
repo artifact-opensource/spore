@@ -164,7 +164,7 @@ func isRunning(pidPath string) bool {
 func autoConnect(spec string, log func(string)) {
 	// spec format: user@host:port
 	// Creates reverse SSH tunnel from remote back to this device
-	// This lets Dragonfly (or any server) reach into the phone
+	// This lets a remote server reach into the phone
 
 	for {
 		log(fmt.Sprintf("connecting tunnel: %s", spec))

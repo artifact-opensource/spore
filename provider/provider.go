@@ -378,7 +378,7 @@ func (p *Provider) chatOpenAI(system string, messages []Message, tools []ToolDef
 
 	// OpenRouter requires extra headers
 	if p.config.Provider == "openrouter" {
-		req.Header.Set("HTTP-Referer", "https://github.com/artifact-virtual/spore")
+		req.Header.Set("HTTP-Referer", "https://github.com/artifact-opensource/spore")
 		req.Header.Set("X-Title", "Spore Agent")
 	}
 
