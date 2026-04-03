@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -499,7 +500,11 @@ func (a *Auth) DeviceAuth() error {
 		"scope":     "copilot",
 	})
 
-	resp, err := client.Post("https://github.com/login/device/code", "application/json", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", "https://github.com/login/device/code", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("device code request failed: %w", err)
 	}
@@ -511,12 +516,20 @@ func (a *Auth) DeviceAuth() error {
 		VerificationURI string `json:"verification_uri"`
 		Interval        int    `json:"interval"`
 	}
-	// GitHub returns form-encoded by default unless we ask for JSON
 	respBody, _ := io.ReadAll(resp.Body)
 
-	// Try JSON first
+	// Try JSON first, fall back to form-encoded
 	if err := json.Unmarshal(respBody, &codeResp); err != nil {
-		return fmt.Errorf("unexpected response: %s", string(respBody))
+		vals, parseErr := url.ParseQuery(string(respBody))
+		if parseErr != nil {
+			return fmt.Errorf("unexpected response: %s", string(respBody))
+		}
+		codeResp.DeviceCode = vals.Get("device_code")
+		codeResp.UserCode = vals.Get("user_code")
+		codeResp.VerificationURI = vals.Get("verification_uri")
+		if iv := vals.Get("interval"); iv != "" {
+			fmt.Sscanf(iv, "%d", &codeResp.Interval)
+		}
 	}
 
 	if codeResp.Interval == 0 {
@@ -552,8 +565,17 @@ func (a *Auth) DeviceAuth() error {
 			Error       string `json:"error"`
 			Interval    int    `json:"interval"`
 		}
-		json.NewDecoder(tokenResp.Body).Decode(&result)
+		tokenRespBody, _ := io.ReadAll(tokenResp.Body)
 		tokenResp.Body.Close()
+
+		if err := json.Unmarshal(tokenRespBody, &result); err != nil {
+			vals, _ := url.ParseQuery(string(tokenRespBody))
+			result.AccessToken = vals.Get("access_token")
+			result.Error = vals.Get("error")
+			if iv := vals.Get("interval"); iv != "" {
+				fmt.Sscanf(iv, "%d", &result.Interval)
+			}
+		}
 
 		if result.AccessToken != "" {
 			a.saveGitHubToken(result.AccessToken)
