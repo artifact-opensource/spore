@@ -90,6 +90,9 @@ func (a *Agent) Run(input string) (string, error) {
 		a.NewSession("")
 	}
 
+	// Sanitize history before adding new message — fix any corrupted state
+	a.history = sanitizeHistory(a.history)
+
 	a.history = append(a.history, provider.Message{
 		Role:    "user",
 		Content: input,
@@ -101,6 +104,7 @@ func (a *Agent) Run(input string) (string, error) {
 	if maxIter <= 0 {
 		maxIter = 25
 	}
+	var lastToolSig string // detect repeated identical tool calls
 	for i := 0; i < maxIter; i++ {
 		resp, err := a.prov.Chat(a.config.System, a.history, provTools)
 		if err != nil {
@@ -115,6 +119,26 @@ func (a *Agent) Run(input string) (string, error) {
 			a.saveSession()
 			return resp.Content, nil
 		}
+
+		// Detect repeated tool calls (same tool + same args = stuck in loop)
+		toolSig := ""
+		for _, tc := range resp.ToolCalls {
+			toolSig += tc.Name + ":" + tc.Arguments + ";"
+		}
+		if toolSig == lastToolSig {
+			// Model is looping — break out and return what we have
+			content := resp.Content
+			if content == "" {
+				content = "[completed]"
+			}
+			a.history = append(a.history, provider.Message{
+				Role:    "assistant",
+				Content: content,
+			})
+			a.saveSession()
+			return content, nil
+		}
+		lastToolSig = toolSig
 
 		a.history = append(a.history, provider.Message{
 			Role:      "assistant",
@@ -136,8 +160,74 @@ func (a *Agent) Run(input string) (string, error) {
 		}
 	}
 
+	// Fix dangling tool_calls: if the last message is an assistant with tool_calls,
+	// inject stub tool responses so the API doesn't reject the history on next request
+	if len(a.history) > 0 {
+		last := a.history[len(a.history)-1]
+		if last.Role == "assistant" && len(last.ToolCalls) > 0 {
+			for _, tc := range last.ToolCalls {
+				a.history = append(a.history, provider.Message{
+					Role:       "tool",
+					Content:    "[max iterations reached — tool not executed]",
+					ToolCallID: tc.ID,
+				})
+			}
+		}
+	}
+
 	a.saveSession()
 	return "[max iterations reached]", nil
+}
+
+// sanitizeHistory fixes corrupted message sequences that cause API 400 errors:
+// 1. Tool messages without a preceding assistant tool_calls message
+// 2. Assistant tool_calls without matching tool responses
+func sanitizeHistory(msgs []provider.Message) []provider.Message {
+	if len(msgs) == 0 {
+		return msgs
+	}
+
+	// Build set of tool_call IDs that have been requested
+	pendingCalls := map[string]bool{}
+	var clean []provider.Message
+
+	for _, m := range msgs {
+		if m.Role == "assistant" && len(m.ToolCalls) > 0 {
+			// Track all tool_call IDs from this assistant message
+			for _, tc := range m.ToolCalls {
+				pendingCalls[tc.ID] = true
+			}
+			clean = append(clean, m)
+		} else if m.Role == "tool" {
+			// Only keep tool messages that have a matching pending call
+			if m.ToolCallID != "" && pendingCalls[m.ToolCallID] {
+				delete(pendingCalls, m.ToolCallID)
+				clean = append(clean, m)
+			}
+			// Drop orphaned tool messages silently
+		} else {
+			clean = append(clean, m)
+		}
+	}
+
+	// Fix dangling tool_calls at the end (assistant requested tools but no responses)
+	if len(clean) > 0 {
+		last := clean[len(clean)-1]
+		if last.Role == "assistant" && len(last.ToolCalls) > 0 {
+			// Check if all tool_calls have responses
+			for _, tc := range last.ToolCalls {
+				if pendingCalls[tc.ID] {
+					clean = append(clean, provider.Message{
+						Role:       "tool",
+						Content:    "[previous session ended — tool not executed]",
+						ToolCallID: tc.ID,
+					})
+				}
+			}
+		}
+	}
+
+	return clean
 }
 
 func (a *Agent) executeTool(name string, args map[string]interface{}) string {
@@ -206,6 +296,9 @@ func (a *Agent) executeTool(name string, args map[string]interface{}) string {
 		return a.tools.Env()
 	case "device_info":
 		return a.tools.DeviceInfo()
+	case "adb_connect":
+		action, _ := args["action"].(string)
+		return a.tools.AdbConnect(action)
 	case "notify":
 		title, _ := args["title"].(string)
 		body, _ := args["body"].(string)
@@ -289,6 +382,25 @@ func (a *Agent) executeTool(name string, args map[string]interface{}) string {
 			}
 		}
 		return a.tools.MacroFireWith(trigger, vars)
+
+	// --- Xbox / Windows System Tools ---
+	case "gpu_status":
+		return a.tools.GpuStatus()
+	case "service_manager":
+		action, _ := args["action"].(string)
+		target, _ := args["target"].(string)
+		return a.tools.ServiceManager(action, target)
+	case "network_info":
+		action, _ := args["action"].(string)
+		return a.tools.NetworkInfo(action)
+	case "system_info":
+		component, _ := args["component"].(string)
+		return a.tools.SystemInfo(component)
+	case "file_server":
+		action, _ := args["action"].(string)
+		path, _ := args["path"].(string)
+		port, _ := args["port"].(float64)
+		return a.tools.FileServer(action, path, int(port))
 
 	default:
 		return fmt.Sprintf("unknown tool: %s", name)

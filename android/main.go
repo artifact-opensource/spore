@@ -21,14 +21,14 @@ import (
 	"github.com/artifact-virtual/symbiote-android/tools"
 )
 
-const version = "0.1.0"
+const version = "2.0.0"
 const banner = `
-  ███████╗██╗   ██╗███╗   ███╗██████╗ ██╗ ██████╗ ████████╗███████╗
-  ██╔════╝╚██╗ ██╔╝████╗ ████║██╔══██╗██║██╔═══██╗╚══██╔══╝██╔════╝
-  ███████╗ ╚████╔╝ ██╔████╔██║██████╔╝██║██║   ██║   ██║   █████╗  
-  ╚════██║  ╚██╔╝  ██║╚██╔╝██║██╔══██╗██║██║   ██║   ██║   ██╔══╝  
-  ███████║   ██║   ██║ ╚═╝ ██║██████╔╝██║╚██████╔╝   ██║   ███████╗
-  ╚══════╝   ╚═╝   ╚═╝     ╚═╝╚═════╝ ╚═╝ ╚═════╝    ╚═╝   ╚══════╝
+  ███████╗██████╗  ██████╗ ██████╗ ███████╗
+  ██╔════╝██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+  ███████╗██████╔╝██║   ██║██████╔╝█████╗  
+  ╚════██║██╔═══╝ ██║   ██║██╔══██╗██╔══╝  
+  ███████║██║     ╚██████╔╝██║  ██║███████╗
+  ╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝╚══════╝
 `
 
 func main() {
@@ -440,6 +440,22 @@ func runStatus() {
 func runSetup() {
 	os.MkdirAll(dataPath(), 0755)
 	cfgPath := configPath()
+
+	// Check for --profile flag
+	profile := ""
+	for i, arg := range os.Args {
+		if arg == "--profile" && i+1 < len(os.Args) {
+			profile = os.Args[i+1]
+		}
+	}
+
+	if profile != "" {
+		cfg := core.LoadProfile(profile, cfgPath)
+		cfg.Save(cfgPath)
+		fmt.Printf("  config created with %s profile: %s\n", profile, cfgPath)
+		return
+	}
+
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		cfg := core.LoadConfig(cfgPath)
 		cfg.Save(cfgPath)
@@ -539,63 +555,80 @@ func configPath() string {
 
 func printHelp() {
 	fmt.Fprintf(os.Stderr, `
-  %s  symbiote for android — full agentic runtime
+  %s  spore — autonomous agent runtime (Android / Windows / Xbox / Linux)
 
   %sstart / stop%s
-    symbiote start [port]      start everything (webchat + discord + copilot)
-    symbiote stop              stop spore
+    spore start [port]         start everything (webchat + discord + copilot)
+    spore stop                 stop spore
 
   %sagent%s
-    symbiote                   interactive chat
-    symbiote run <prompt>      single-shot agent
-    symbiote chat              interactive mode
+    spore                      interactive chat
+    spore run <prompt>         single-shot agent
+    spore chat                 interactive mode
 
   %sdaemon%s
-    symbiote daemon start      start background agent
-    symbiote daemon stop       stop daemon
-    symbiote daemon status     check daemon
-    symbiote daemon logs       tail daemon logs
-    symbiote serve [port]      HTTP API server (default: 8422)
-    symbiote web [port]        open webchat in browser
+    spore daemon start         start background agent
+    spore daemon stop          stop daemon
+    spore daemon status        check daemon
+    spore daemon logs          tail daemon logs
+    spore serve [port]         HTTP API server (default: 8422)
+    spore web [port]           open webchat in browser
 
   %sshell%s
-    symbiote sh                interactive shell with tools
-    symbiote exec <command>    run a command
+    spore sh                   interactive shell with tools
+    spore exec <command>       run a command
 
   %smemory%s
-    symbiote search <query>    search indexed files
-    symbiote ingest [path]     index files
+    spore search <query>       search indexed files
+    spore ingest [path]        index files
 
   %snetwork%s
-    symbiote tunnel L:R:host   forward tunnel
-    symbiote tunnel reverse R:L:host   reverse tunnel
-    symbiote scan [target]     network scan (default: 192.168.1.0/24)
-    symbiote proxy [port]      SOCKS5 proxy (default: 1080)
+    spore tunnel L:R:host      forward tunnel
+    spore tunnel reverse R:L:host  reverse tunnel
+    spore scan [target]        network scan (default: 192.168.1.0/24)
+    spore proxy [port]         SOCKS5 proxy (default: 1080)
 
   %sprocess%s
-    symbiote ps                list managed processes
-    symbiote kill <pid|name>   kill a managed process
+    spore ps                   list managed processes
+    spore kill <pid|name>      kill a managed process
 
   %sconfig%s
-    symbiote config            show config
-    symbiote config <k> <v>    set config value
-    symbiote setup             first-time setup
-    symbiote status            full system status
+    spore config               show config
+    spore config <k> <v>       set config value
+    spore setup                first-time setup
+    spore setup --profile xbox apply Xbox preset (local, qwen3.5:9b)
+    spore status               full system status
 
   %sproviders%s
-    symbiote config provider copilot     GitHub Copilot (default, built-in proxy)
-    symbiote config provider ollama      Ollama (local, toggle with: config ollama on)
-    symbiote config provider openai      OpenAI API
-    symbiote config provider anthropic   Anthropic API  
-    symbiote config provider local       llamafile
-    symbiote config provider custom      any OpenAI-compatible
+    spore config provider copilot     GitHub Copilot (built-in proxy)
+    spore config provider ollama      Ollama (local)
+    spore config provider openai      OpenAI API
+    spore config provider anthropic   Anthropic API
+    spore config provider local       llamafile / any OpenAI-compatible
+    spore config provider custom      custom endpoint
 
   %scopilot%s
-    symbiote copilot auth       authenticate with GitHub
-    symbiote copilot start      start proxy standalone
-    symbiote copilot health     check proxy status
+    spore copilot auth          authenticate with GitHub
+    spore copilot start         start proxy standalone
+    spore copilot health        check proxy status
 
-`, banner, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset)
+  %sdiscord%s
+    spore discord               standalone Discord bot
+
+  %sxbox / system tools%s
+    gpu_status                  GPU temp, VRAM, utilization
+    service_manager             list/start/stop/kill processes
+    network_info                interfaces, ports, connections, DNS
+    system_info                 CPU, RAM, disk, GPU, OS overview
+    file_server                 serve directory over HTTP (file transfer)
+
+  %splatforms%s
+    Android (ARM64)   — Termux, full device control, ADB
+    Windows (x64)     — PowerShell, WMI, native shell
+    Xbox Dev Mode     — via Windows subsystem, GPU/process tools
+    Linux (x64/ARM64) — full POSIX, /proc, standard tools
+
+`, banner, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset)
 }
 
 // --- Output helpers ---

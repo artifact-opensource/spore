@@ -52,14 +52,16 @@ const (
 
 // Bot is a minimal Discord bot that pipes messages through an Agent
 type Bot struct {
-	token  string
-	prefix string
-	agent  *core.Agent
-	botID  string
-	ws     *websocket.Conn
-	seq    *int64
-	mu     sync.Mutex
-	log    func(string)
+	token    string
+	prefix   string
+	agent    *core.Agent
+	botID    string
+	ws       *websocket.Conn
+	seq      *int64
+	mu       sync.Mutex
+	log      func(string)
+	channels map[string]string // channelID -> sessionID (per-channel memory)
+	chanMu   sync.Mutex
 }
 
 // gateway payloads
@@ -108,10 +110,11 @@ func New(token string, prefix string, agent *core.Agent, logFn func(string)) *Bo
 		logFn = func(s string) { log.Println("[discord]", s) }
 	}
 	return &Bot{
-		token:  token,
-		prefix: prefix,
-		agent:  agent,
-		log:    logFn,
+		token:    token,
+		prefix:   prefix,
+		agent:    agent,
+		log:      logFn,
+		channels: make(map[string]string),
 	}
 }
 
@@ -143,6 +146,25 @@ func (b *Bot) connect(ctx context.Context) error {
 	conn.SetReadLimit(1 << 20) // 1MB
 
 	b.ws = conn
+
+	// Recover channel→session mappings from existing sessions
+	b.chanMu.Lock()
+	if len(b.channels) == 0 {
+		for _, meta := range b.agent.ListSessions() {
+			// Sessions are named "discord-{channelID}" or "dm-{channelID}"
+			var chanID string
+			if strings.HasPrefix(meta.Title, "discord-") {
+				chanID = strings.TrimPrefix(meta.Title, "discord-")
+			} else if strings.HasPrefix(meta.Title, "dm-") {
+				chanID = strings.TrimPrefix(meta.Title, "dm-")
+			}
+			if chanID != "" {
+				b.channels[chanID] = meta.ID
+				b.log(fmt.Sprintf("recovered session %s for %s", meta.ID, meta.Title))
+			}
+		}
+	}
+	b.chanMu.Unlock()
 
 	// Read Hello (op 10)
 	var hello gatewayPayload
@@ -254,10 +276,32 @@ func (b *Bot) handleEvent(ctx context.Context, t string, d json.RawMessage) {
 		// Send typing indicator
 		go b.sendTyping(msg.ChannelID)
 
-		// Run through agent (fresh context per message to prevent history poisoning)
+		// Run through agent with per-channel session persistence
 		go func() {
 			b.log(fmt.Sprintf("[%s] processing request from %s...", msg.ChannelID, msg.Author.Username))
-			b.agent.Reset() // fresh history per Discord message
+
+			// Load or create session for this channel
+			b.chanMu.Lock()
+			sessID, exists := b.channels[msg.ChannelID]
+			b.chanMu.Unlock()
+
+			if exists {
+				if _, err := b.agent.LoadSession(sessID); err != nil {
+					b.log(fmt.Sprintf("[%s] session %s lost, creating new", msg.ChannelID, sessID))
+					exists = false
+				}
+			}
+			if !exists {
+				title := "discord-" + msg.ChannelID
+				if msg.GuildID == "" {
+					title = "dm-" + msg.ChannelID
+				}
+				sess := b.agent.NewSession(title)
+				b.chanMu.Lock()
+				b.channels[msg.ChannelID] = sess.ID
+				b.chanMu.Unlock()
+				b.log(fmt.Sprintf("[%s] new session: %s", msg.ChannelID, sess.ID))
+			}
 			result, err := b.agent.Run(content)
 			if err != nil {
 				b.log(fmt.Sprintf("[%s] agent error: %v", msg.ChannelID, err))

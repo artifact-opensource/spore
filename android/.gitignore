@@ -1,9 +1,21 @@
-spore-arm64
-spore-arm64-new
-spore-local
-spore-x86
-spore.exe
-symbiote
-symbiote-android-*
-symbiote-linux-*
-../agent/spore
+# Binaries
+spore
+spore-*
+*.exe
+!*.go
+
+# Go
+go.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+.symbiote/

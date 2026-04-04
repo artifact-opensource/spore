@@ -273,8 +273,9 @@ func (t *Toolbox) Definitions() []ToolDef {
 		},
 	}
 
-	// Append Android-specific tools
+	// Append platform-specific tools
 	defs = append(defs, AndroidToolDefs()...)
+	defs = append(defs, XboxToolDefs()...)
 	return defs
 }
 
@@ -513,6 +514,42 @@ func (t *Toolbox) DeviceInfo() string {
 func (t *Toolbox) Notify(title, body string) string {
 	cmd := fmt.Sprintf("termux-notification --title %q --content %q", title, body)
 	return t.ExecTimeout(cmd, 5)
+}
+
+// --- Xbox/Windows tool dispatch (called from agent) ---
+
+func (t *Toolbox) DispatchXbox(name string, args map[string]interface{}) string {
+	getStr := func(key string) string {
+		if v, ok := args[key]; ok {
+			return fmt.Sprintf("%v", v)
+		}
+		return ""
+	}
+	getInt := func(key string, def int) int {
+		if v, ok := args[key]; ok {
+			switch n := v.(type) {
+			case float64:
+				return int(n)
+			case int:
+				return n
+			}
+		}
+		return def
+	}
+
+	switch name {
+	case "gpu_status":
+		return t.GpuStatus()
+	case "service_manager":
+		return t.ServiceManager(getStr("action"), getStr("target"))
+	case "network_info":
+		return t.NetworkInfo(getStr("action"))
+	case "system_info":
+		return t.SystemInfo(getStr("component"))
+	case "file_server":
+		return t.FileServer(getStr("action"), getStr("path"), getInt("port", 9090))
+	}
+	return ""
 }
 
 // --- Helpers ---

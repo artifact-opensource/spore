@@ -24,6 +24,7 @@ var appNames = map[string]string{
 	"whatsapp":    "com.whatsapp",
 	"telegram":    "org.telegram.messenger",
 	"twitter":     "com.twitter.android",
+	"x":           "com.twitter.android",
 	"facebook":    "com.facebook.katana",
 	"instagram":   "com.instagram.android",
 	"reddit":      "com.reddit.frontpage",
@@ -36,6 +37,26 @@ var appNames = map[string]string{
 	"netflix":     "com.netflix.mediaclient",
 	"sketchbook":  "com.adsk.sketchbook",
 	"exness":      "com.exness.investor",
+	"firefox":     "org.mozilla.firefox",
+	"brave":       "com.brave.browser",
+	"edge":        "com.microsoft.emmx",
+	"opera":       "com.opera.browser",
+	"samsung internet": "com.sec.android.app.sbrowser",
+	"samsung browser":  "com.sec.android.app.sbrowser",
+	"notes":       "com.samsung.android.app.notes",
+	"drive":       "com.google.android.apps.docs",
+	"sheets":      "com.google.android.apps.docs.editors.sheets",
+	"docs":        "com.google.android.apps.docs.editors.docs",
+	"photos":      "com.google.android.apps.photos",
+	"play store":  "com.android.vending",
+	"store":       "com.android.vending",
+	"tiktok":      "com.zhiliaoapp.musically",
+	"snapchat":    "com.snapchat.android",
+	"signal":      "org.thoughtcrime.securesms",
+	"teams":       "com.microsoft.teams",
+	"zoom":        "us.zoom.videomeetings",
+	"mt5":         "net.metaquotes.metatrader5",
+	"metatrader":  "net.metaquotes.metatrader5",
 }
 
 // resolveApp resolves a friendly name or package name to a package name
@@ -227,6 +248,11 @@ var knownActivities = map[string]string{
 	"com.netflix.mediaclient":             "com.netflix.mediaclient/.ui.launch.UIWebViewActivity",
 	"com.microsoft.office.outlook":        "com.microsoft.office.outlook/.MainActivity",
 	"com.exness.investor":                 "com.exness.investor/.ui.splash.SplashActivity",
+	"org.mozilla.firefox":                 "org.mozilla.firefox/.App",
+	"com.brave.browser":                   "com.brave.browser/.BraveActivity",
+	"com.sec.android.app.sbrowser":        "com.sec.android.app.sbrowser/.SBrowserMainActivity",
+	"com.android.vending":                 "com.android.vending/.AssetBrowserActivity",
+	"net.metaquotes.metatrader5":           "net.metaquotes.metatrader5/.MainActivityNew",
 }
 
 // appURISchemes maps package names to URI schemes that Android will route to the correct app.
@@ -269,13 +295,35 @@ func (t *Toolbox) AppLaunch(name string) string {
 		}
 	}
 
-	// Method 3: am start with MAIN/LAUNCHER intent
-	cmd := fmt.Sprintf("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n %s 2>&1", pkg)
+	// Method 3: monkey launch — works for ANY installed package (no activity name needed)
+	cmd := fmt.Sprintf("monkey -p %s -c android.intent.category.LAUNCHER 1 2>&1", pkg)
 	result := t.ExecTimeout(cmd, 10)
-	if strings.Contains(result, "Error") || strings.Contains(result, "error") {
-		return fmt.Sprintf("failed to launch %s (%s): %s", name, pkg, result)
+	if strings.Contains(result, "Events injected: 1") {
+		return fmt.Sprintf("launched %s", name)
 	}
-	return fmt.Sprintf("launched %s (may need to switch to it manually)", name)
+
+	// Method 4: dynamic lookup — resolve the launch activity from package manager
+	dumpResult := t.ExecTimeout(fmt.Sprintf("pm dump %s 2>/dev/null | grep -A1 'android.intent.action.MAIN' | grep -oP '[\\w.]+/[\\w.]+' | head -1", pkg), 10)
+	dumpResult = strings.TrimSpace(dumpResult)
+	if dumpResult != "" && strings.Contains(dumpResult, "/") {
+		launchCmd := fmt.Sprintf("am start -n %s 2>&1", dumpResult)
+		launchResult := t.ExecTimeout(launchCmd, 10)
+		if !strings.Contains(launchResult, "Error") {
+			return fmt.Sprintf("launched %s", name)
+		}
+	}
+
+	// Method 5: try as-is with pm resolve — find any launchable activity
+	resolveResult := t.ExecTimeout(fmt.Sprintf("pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER %s 2>/dev/null | tail -1", pkg), 10)
+	resolveResult = strings.TrimSpace(resolveResult)
+	if resolveResult != "" && strings.Contains(resolveResult, "/") {
+		launchResult := t.ExecTimeout(fmt.Sprintf("am start -n %s 2>&1", resolveResult), 10)
+		if !strings.Contains(launchResult, "Error") {
+			return fmt.Sprintf("launched %s", name)
+		}
+	}
+
+	return fmt.Sprintf("failed to launch %s — package '%s' not found or has no launchable activity. Try: app_list to find the correct package name.", name, pkg)
 }
 
 func (t *Toolbox) AppStop(name string) string {

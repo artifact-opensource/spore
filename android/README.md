@@ -1,130 +1,168 @@
-# Symbiote for Android
+# Spore
 
-Portable agentic runtime for Android via Termux. Single binary, zero dependencies, full shell control.
+Autonomous agent runtime. Single binary, multi-platform. Runs on anything with a shell.
 
-## What It Does
+Spore is the deployment unit of [Artifact Virtual](https://artifactvirtual.com) — a portable, self-contained AI agent that provides full system control through natural language. One binary. No dependencies. No cloud required.
 
-- **Full agentic AI runtime** on your phone — tool use, shell commands, file ops, memory search
-- **Background daemon** with auto-start on boot via Termux:Boot
-- **HTTP API server** for remote control from any device on the network
-- **SSH tunnels** — forward and reverse, connect back to Dragonfly
-- **Network scanning** — nmap when available, pure Go fallback
-- **SOCKS5 proxy** — route traffic through the phone
-- **BM25 memory search** — index and search files locally
-- **Process management** — spawn, monitor, kill background processes
-- **Android integration** — battery, notifications, storage via Termux:API
+## Platforms
 
-## Install
-
-```bash
-# In Termux:
-bash install.sh
-```
+| Platform | Architecture | Binary | Status |
+|----------|-------------|--------|--------|
+| Android (Termux) | ARM64 | `spore-arm64` | ✅ Production |
+| Windows | x86_64 | `spore-windows-amd64.exe` | ✅ Production |
+| Linux | x86_64 | `spore-linux-amd64` | ✅ Production |
+| Xbox Dev Mode | x86_64 | `spore-windows-amd64.exe` | ✅ Production |
 
 ## Quick Start
 
 ```bash
+# Download the binary for your platform
+chmod +x spore-*
+
+# First-time setup (creates config)
+./spore setup
+
+# For Xbox Dev Mode:
+./spore setup --profile xbox
+
+# Start everything (webchat + discord bot)
+./spore start
+
+# Or run a single command
+./spore run "what's my GPU temperature?"
+
 # Interactive chat
-symbiote
-
-# Single-shot
-symbiote run "list all files in my home directory"
-
-# Background daemon
-symbiote daemon start
-
-# HTTP API
-symbiote serve 8422
-
-# Connect to Dragonfly
-symbiote config provider copilot
-symbiote config base_url http://192.168.1.13:3000
-symbiote config model gpt-4o
+./spore chat
 ```
+
+## Features
+
+### Core Agent
+- **Agentic loop** — tool-calling AI that executes actions, not descriptions
+- **Webchat UI** — built-in HTTP server with session management
+- **Discord bot** — auto-connects if token configured
+- **Memory** — BM25 search over indexed files
+- **Sessions** — persistent conversation history
+
+### Platform Tools
+
+**Universal (all platforms):**
+- `exec` — shell command execution
+- `read` / `write` / `edit` — file operations
+- `search` — semantic memory search
+- `web_fetch` — HTTP client
+- `processes` / `kill_process` — process management
+
+**Android (Termux):**
+- `app_launch` / `app_stop` — control any installed app
+- `brightness` / `volume` / `torch` — device hardware
+- `camera_photo` — take photos
+- `sms_send` / `sms_inbox` / `call` — telephony
+- `clipboard_get` / `clipboard_set` — clipboard
+- `tts_speak` / `toast` / `notify` — notifications
+- `macro_fire` — MacroDroid integration
+- `adb_connect` — wireless ADB auto-detection
+- `location` / `wifi_info` / `battery` — sensors
+
+**Windows / Xbox / Linux:**
+- `gpu_status` — GPU temp, VRAM, utilization (nvidia-smi / dxdiag / WMI)
+- `service_manager` — list/start/stop/kill processes (tasklist/taskkill or ps/kill)
+- `network_info` — interfaces, connections, ports, DNS, ARP scan
+- `system_info` — CPU, RAM, disk, GPU, OS (WMI/PowerShell or /proc)
+- `file_server` — serve directory over HTTP for file transfer
+
+### Providers
+
+| Provider | Config |
+|----------|--------|
+| GitHub Copilot | `spore config provider copilot` (built-in proxy, free) |
+| Ollama | `spore config provider ollama` |
+| OpenAI | `spore config provider openai` |
+| Anthropic | `spore config provider anthropic` |
+| Local/llamafile | `spore config provider local` |
+| Custom | `spore config provider custom` + `spore config base_url <url>` |
+
+## Xbox Deployment Guide
+
+### Prerequisites
+1. Xbox in **Dev Mode** (requires Xbox Dev Mode Activation app, $20 one-time)
+2. **Windows Device Portal** enabled (Settings → Dev Home → Remote Access)
+3. An LLM running locally — either:
+   - **Ollama** on another machine on the network
+   - **llamafile** running directly on Xbox via Dev Mode shell
+
+### Deployment Steps
+
+```bash
+# 1. Build the Windows binary (or download release)
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o spore-windows-amd64.exe .
+
+# 2. Upload to Xbox via Device Portal (https://<xbox-ip>:11443)
+#    Navigate to File Explorer → LocalAppData → upload spore-windows-amd64.exe
+
+# 3. SSH into Xbox Dev Mode shell
+ssh devuser@<xbox-ip>
+
+# 4. Setup with Xbox profile
+spore-windows-amd64.exe setup --profile xbox
+
+# 5. Configure LLM endpoint (if Ollama on another machine)
+spore-windows-amd64.exe config base_url http://<ollama-host>:11434
+spore-windows-amd64.exe config model qwen3.5:9b
+
+# 6. Start Spore
+spore-windows-amd64.exe start
+```
+
+### Xbox-Specific Config
+The Xbox profile (`--profile xbox`) pre-configures:
+- Provider: `local` (OpenAI-compatible endpoint)
+- Model: `qwen3.5:9b` (fits in Xbox's ~10GB available RAM)
+- Base URL: `http://127.0.0.1:8080/v1` (adjust if LLM is remote)
+- System prompt: Xbox-aware (GPU tools, process management)
+
+### What Works on Xbox
+- ✅ GPU monitoring (dxdiag, WMI via PowerShell)
+- ✅ Process management (tasklist/taskkill)
+- ✅ Network tools (ipconfig, netstat)
+- ✅ File serving (HTTP server for transfers)
+- ✅ System info (systeminfo, WMI)
+- ✅ Webchat UI (accessible from any device on LAN)
+- ✅ Discord bot (if internet available)
+
+## Building
+
+```bash
+# All platforms
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o spore-windows-amd64.exe .
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o spore-linux-amd64 .
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o spore-arm64 .
+```
+
+Zero CGO. No external dependencies. Single static binary per platform.
 
 ## Architecture
 
 ```
-symbiote (5.7 MB ARM64 binary)
-├── core/       agent loop + config
-├── provider/   OpenAI, Anthropic, Copilot, local, custom
-├── tools/      exec, read, write, edit, search, web_fetch, processes, notify
-├── memory/     BM25 full-text search + document index
-├── daemon/     background service + HTTP API
-├── network/    SSH tunnels, port scanning, SOCKS5 proxy
-└── shell/      interactive terminal + shell passthrough
+main.go              — CLI entry point, command routing
+core/agent.go        — Agentic loop (tool calling, history, sessions)
+core/config.go       — Config management, platform profiles
+core/session.go      — Session persistence
+tools/tools.go       — Universal tools (exec, read, write, search, web)
+tools/android.go     — Android/Termux tools (apps, device control, sensors)
+tools/xbox.go        — Xbox/Windows/Linux tools (GPU, services, network, sysinfo)
+tools/proc_unix.go   — Unix process group management
+tools/proc_windows.go — Windows process management
+daemon/daemon.go     — Background daemon management
+daemon/webchat.go    — Built-in webchat UI
+discord/discord.go   — Discord bot (Gateway v10)
+copilot/copilot.go   — GitHub Copilot proxy
+memory/memory.go     — BM25 search index
+network/network.go   — Tunnels, SOCKS proxy, network scan
+shell/shell.go       — Interactive REPL
+provider/provider.go — LLM provider abstraction
 ```
 
-## Binary Targets
+## License
 
-| Target | File | Size |
-|--------|------|------|
-| Android ARM64 (phone/tablet) | `symbiote-android-arm64` | 5.7 MB |
-| Android x86_64 (emulator) | `symbiote-android-x86_64` | 5.8 MB |
-| Linux ARM64 (Chromebook) | `symbiote-linux-arm64` | 5.2 MB |
-
-## Data Layout
-
-```
-~/.symbiote/
-├── config.json     provider, model, device settings
-├── memory/
-│   └── index.json  BM25 search index
-├── logs/
-│   └── daemon.log
-└── processes/
-```
-
-## Tools (12)
-
-| Tool | Description |
-|------|-------------|
-| `exec` | Run any shell command (full Termux access) |
-| `read` | Read files with offset/limit |
-| `write` | Write files, auto-create dirs |
-| `edit` | Surgical find-and-replace |
-| `search` | BM25 memory search |
-| `web_fetch` | HTTP GET with size limits |
-| `list` | Directory listing |
-| `processes` | List running processes |
-| `kill_process` | Kill by PID or name |
-| `env` | Show environment |
-| `device_info` | Battery, storage, network, IP |
-| `notify` | Android notification via Termux:API |
-
-## Network Features
-
-```bash
-# Forward tunnel (access remote service locally)
-symbiote tunnel 8080:80:example.com
-
-# Reverse tunnel (let Dragonfly reach your phone)
-symbiote tunnel reverse 9422:8422:adam@192.168.1.13
-
-# Network scan
-symbiote scan 192.168.1.0/24
-symbiote scan 192.168.1.13
-
-# SOCKS5 proxy
-symbiote proxy 1080
-```
-
-## Providers
-
-| Provider | Config |
-|----------|--------|
-| Local (llamafile) | `symbiote config provider local` |
-| OpenAI | `symbiote config provider openai` + api_key |
-| Anthropic | `symbiote config provider anthropic` + api_key |
-| Copilot proxy | `symbiote config provider copilot` |
-| Any OpenAI-compatible | `symbiote config provider custom` + base_url |
-
-## Requirements
-
-- Android device with [Termux](https://f-droid.org/packages/com.termux/)
-- Optional: [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) for auto-start
-- Optional: [Termux:API](https://f-droid.org/packages/com.termux.api/) for notifications/device info
-
-## Part of Artifact Virtual
-
-Built by AVA. Sibling to [Spore](../agent/) (desktop) and [Mach6](https://github.com/artifact-opensource/symbiote) (enterprise).
+Artifact Virtual © 2026. All rights reserved.

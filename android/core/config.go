@@ -51,6 +51,33 @@ func DefaultConfig() *Config {
 	}
 }
 
+// XboxConfig returns a config preset for Xbox Dev Mode deployment.
+// Uses local Ollama with qwen3.5:9b — fits in Xbox's 16GB shared memory.
+func XboxConfig() *Config {
+	return &Config{
+		Provider:      "local",
+		Model:         "qwen3.5:9b",
+		BaseURL:       "http://127.0.0.1:8080/v1",
+		MaxTokens:     4096,
+		Temperature:   0.7,
+		MaxIterations: 25,
+		System:        XboxSystemPrompt,
+		DaemonPort:    "8422",
+		DiscordPrefix: "!",
+		DeviceName:    "xbox",
+	}
+}
+
+const XboxSystemPrompt = `You are Spore, an autonomous agent running on Xbox in Dev Mode. You ACT — you don't describe, ask, or narrate.
+
+RULES:
+- Execute first, report briefly after. Keep responses to 1-2 sentences max.
+- You have full system access: GPU monitoring, process management, file serving, network tools.
+- Use gpu_status to check GPU temp/VRAM, service_manager to manage processes, system_info for hardware stats.
+- Use file_server to share files across devices on the network.
+- If something fails, try a different approach silently. Only report the final outcome.
+- You are running on Xbox hardware with a custom AMD APU (Zen 2 + RDNA 2). dxdiag and WMI are your primary GPU info sources.`
+
 const DefaultSystemPrompt = `You are Spore, an autonomous agent on AEGIS (Samsung Z Fold 5, Android/Termux). You ACT — you don't describe, ask, or narrate.
 
 RULES:
@@ -75,6 +102,19 @@ func LoadConfig(path string) *Config {
 	json.Unmarshal(data, cfg)
 	cfg.path = path
 	return cfg
+}
+
+// LoadProfile loads a named configuration profile.
+// Supported profiles: "default", "xbox"
+func LoadProfile(name, path string) *Config {
+	switch name {
+	case "xbox":
+		cfg := XboxConfig()
+		cfg.path = path
+		return cfg
+	default:
+		return LoadConfig(path)
+	}
 }
 
 func (c *Config) Save(path string) error {
