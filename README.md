@@ -1,92 +1,115 @@
-# llamafile
+# 🧬 Spore
 
-<img src="docs/images/llamafile-640x640.png" width="320" height="320"
-     alt="[line drawing of llama animal head in front of slightly open manilla folder filled with files]">
+**Single-binary autonomous agent runtime. Runs on anything with a pulse.**
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/mozilla-ai/llamafile/blob/main/LICENSE)
-[![ci status](https://github.com/mozilla-ai/llamafile/actions/workflows/ci.yml/badge.svg)](https://github.com/mozilla-ai/llamafile/actions/workflows/ci.yml)
-[![Based on llama.cpp](https://img.shields.io/badge/llama.cpp-7f5ee54-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/7f5ee54)
-[![Based on whisper.cpp](https://img.shields.io/badge/whisper.cpp-2eeeba5-green.svg)](https://github.com/ggml-org/whisper.cpp/commit/2eeeba5)
-[![Discord](https://dcbadge.limes.pink/api/server/YuMNeuKStr?style=flat)](https://discord.gg/YuMNeuKStr)
-[![Mozilla Builders](https://img.shields.io/badge/Builders-6E6E6E?logo=mozilla&logoColor=white&labelColor=4A4A4A)](https://builders.mozilla.org/)
+Spore is the deployment unit of [Artifact Virtual](https://artifactvirtual.com) — a portable, self-contained AI agent that colonizes any device through a single executable. No dependencies. No containers. No cloud. One binary lands, the host comes alive.
 
-**llamafile lets you distribute and run LLMs with a single file.**
+```
+           ·  ✦  ·
+        ·    |||    ·
+      ·   ///|||\\\\   ·
+        ///  |||  \\\\
+       //   |S|   \\\\
+      /    |P O|    \\
+           |R E|
+           |___|
+            |||
+          __|||__
+         /  ···  \
+        / ·     · \
+       ·    root    ·
+```
 
-llamafile is a [Mozilla Builders](https://builders.mozilla.org/) project (see its [announcement blog post](https://hacks.mozilla.org/2023/11/introducing-llamafile/)), now revamped by [Mozilla.ai](https://www.mozilla.ai/open-tools/llamafile). 
+## What Is This
 
-Our goal is to make open LLMs much more
-accessible to both developers and end users. We're doing that by
-combining [llama.cpp](https://github.com/ggerganov/llama.cpp) with [Cosmopolitan Libc](https://github.com/jart/cosmopolitan) into one
-framework that collapses all the complexity of LLMs down to
-a single-file executable (called a "llamafile") that runs
-locally on most operating systems and CPU archiectures, with no installation.
+Spore is an **agentic runtime** — an AI that doesn't just talk, it *does*. Give it a shell, give it an LLM endpoint, and it will manage the machine it lives on. Files, processes, network, hardware, sensors — everything the host offers becomes a tool.
 
-llamafile also includes **[whisperfile](whisperfile/index.md)**, a single-file speech-to-text tool built on [whisper.cpp](https://github.com/ggerganov/whisper.cpp) and the same Cosmopolitan packaging. It supports transcription and translation of audio files across all the same platforms, with no installation required.
+It spreads across architectures:
 
+| Platform | Binary | Size |
+|----------|--------|------|
+| Linux x86_64 | `spore-linux-amd64` | 8.4 MB |
+| Windows x86_64 | `spore-windows-amd64.exe` | 8.6 MB |
+| Android ARM64 | `spore-android-arm64` | 8.1 MB |
+| Android x86_64 | `spore-android-x86_64` | 8.3 MB |
 
-## v0.10.0
-
-**llamafile versions starting from 0.10.0 use a new build system**, aimed at keeping our code more easily 
-aligned with the latest versions of llama.cpp. This means they support more recent models and functionalities,
-but at the same time they might be missing some of
-the features you were accustomed to (check out [this doc](README_0.10.0.md) for a high-level description of what has been done). If you liked
-the "classic experience" more, you will always be able to access the previous versions from our
-[releases](https://github.com/mozilla-ai/llamafile/releases) page. Our pre-built llamafiles always
-show which version of the server they have been bundled with ([0.9.* example](https://huggingface.co/mozilla-ai/llava-v1.5-7b-llamafile), [0.10.* example](https://huggingface.co/mozilla-ai/llamafile_0.10.0)), so you will always know
-which version of the software you are downloading.
-
-
-> **We want to hear from you!**
-Whether you are a new user or a long-time fan, please share what you find most valuable about llamafile and what would make it more useful for you.
-[Read more via the blog](https://blog.mozilla.ai/llamafile-returns/) and add your voice to the discussion [here](https://github.com/mozilla-ai/llamafile/discussions/809).
-
+Zero CGO. Static linking. Cross-compiled from pure Go.
 
 ## Quick Start
 
-Download and run your first llamafile in minutes:
+```bash
+# Download binary for your platform from releases/
+chmod +x spore-*
 
-```sh
-# Download an example model (Qwen3.5 0.8B)
-curl -LO https://huggingface.co/mozilla-ai/llamafile_0.10.0/resolve/main/Qwen3.5-0.8B-Q8_0.llamafile
+# First run — creates config, picks provider
+./spore setup
 
-# Make it executable (macOS/Linux/BSD)
-chmod +x Qwen3.5-0.8B-Q8_0.llamafile
+# Start the daemon (webchat UI + Discord bot)
+./spore start
 
-# Run it
-./Qwen3.5-0.8B-Q8_0.llamafile
+# Or just run a command
+./spore run "show me disk usage and kill any zombie processes"
 ```
 
-We chose this model because that's the smallest one we have
-built a llamafile for, so most likely to work out-of-the-box for you.
-If you have powerful hardware and/or GPUs, [feel free to choose](https://mozilla-ai.github.io/llamafile/example_llamafiles/)
-larger and more expressive models which should provide more accurate
-responses.
+## Architecture
 
-**Windows users:** Rename the file to add `.exe` extension before running.
+Spore has two generations living in this repo:
 
-## Documentation
+```
+agent/     — Gen 1: Terminal agent (REPL, provider abstraction, tools)
+android/   — Gen 2: Full runtime (webchat, Discord, sessions, multi-platform tools)
+releases/  — Pre-built binaries
+```
 
-Check the full documentation in the [docs/](docs/) folder or online at [mozilla-ai.github.io/llamafile](https://mozilla-ai.github.io/llamafile/), or directly jump into one of the following subsections:
+Gen 2 (`android/`) is the production runtime despite the directory name — it runs on Android, Windows, Linux, and Xbox. The name is vestigial from its origin on a Samsung Z Fold 5.
 
-- [Quickstart](https://mozilla-ai.github.io/llamafile/quickstart/)
-- [Example llamafiles](https://mozilla-ai.github.io/llamafile/example_llamafiles/)
-- [Running a llamafile](https://mozilla-ai.github.io/llamafile/running_llamafile/)
-- [Creating llamafiles](https://mozilla-ai.github.io/llamafile/creating_llamafiles/)
-- [Source installation](https://mozilla-ai.github.io/llamafile/source_installation/)
-- [Technical details](https://mozilla-ai.github.io/llamafile/technical_details/)
-- [Supported Systems](https://mozilla-ai.github.io/llamafile/support/)
-- [Troubleshooting](https://mozilla-ai.github.io/llamafile/troubleshooting/)
-- [Whisperfile](https://mozilla-ai.github.io/llamafile/whisperfile/)
+### Core Components
 
+```
+core/agent.go        — Agentic loop: observe → think → act → repeat
+core/session.go      — Persistent conversation memory
+tools/tools.go       — Universal: exec, read, write, search, web_fetch
+tools/android.go     — Android: apps, camera, SMS, sensors, ADB
+tools/xbox.go        — Xbox/Windows/Linux: GPU, services, network, sysinfo
+daemon/webchat.go    — Built-in web UI with session management
+discord/discord.go   — Discord Gateway v10 bot
+copilot/copilot.go   — Embedded GitHub Copilot proxy (free LLM access)
+memory/memory.go     — BM25 search over indexed files
+```
 
-## Licensing
+## LLM Providers
 
-While the llamafile project is Apache 2.0-licensed, our changes
-to llama.cpp and whisper.cpp are licensed under MIT (just like the projects
-themselves) so as to remain compatible and upstreamable in the future,
-should that be desired.
+Spore is model-agnostic. It speaks OpenAI-compatible API to any backend:
 
-The llamafile logo on this page was generated with the assistance of DALL·E 3.
+- **GitHub Copilot** — built-in proxy, free tier (default)
+- **Ollama** — local models, any size
+- **OpenAI / Anthropic / Custom** — any endpoint that speaks `/v1/chat/completions`
+- **Artifact Engine** — our own Vulkan inference engine (coming soon)
 
+## The Vision
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Mozilla-Ocho/llamafile&type=Date)](https://star-history.com/#Mozilla-Ocho/llamafile&Date)
+Every device is a potential host. A phone in a drawer. A gaming console. A server in a closet. A Raspberry Pi on a shelf. Spore doesn't need much — a binary, a network connection, and something to think with. It lands, it roots, it serves.
+
+Part of the **Symbiote** family:
+- **Mach6** — the nervous system (orchestrator)
+- **Spore** — the seed (device agent)
+- **OSymbiote** — the organism (bootable agent OS)
+
+## Building
+
+```bash
+cd android/
+
+# All platforms at once
+GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -o ../releases/spore-linux-amd64 .
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o ../releases/spore-windows-amd64.exe .
+GOOS=linux   GOARCH=arm64 CGO_ENABLED=0 go build -o ../releases/spore-android-arm64 .
+```
+
+## License
+
+[Apache 2.0](LICENSE)
+
+---
+
+*Artifact Virtual © 2026*

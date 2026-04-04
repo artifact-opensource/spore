@@ -1,23 +1,31 @@
-# -*- conf -*-
+# Spore — Symbiote Agent Runtime
 
-/o
-/.cosmocc
-/TAGS
-/HTAGS
-/cosmocc
-/perf.data
-/perf.data.old
-/trace.json
+# Build artifacts
+*.exe
+*.o
+*.a
+*.so
+*.dylib
 
-/*.log
-/*.bin
-/*.mp3
+# Binaries (tracked in releases/)
+agent/spore
+android/spore
+android/spore-*
+android/symbiote*
 
+# IDE / editor
 .claude
 CLAUDE.md
+.vscode/
+.idea/
 
-# python
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
 *.pyc
-__init__.py
-uv.lock
-agent/spore
+__pycache__/
+
+# Logs
+*.log
