@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -238,6 +237,22 @@ func (t *Toolbox) Definitions() []ToolDef {
 		{
 			Type: "function",
 			Function: ToolDefFunc{
+				Name:        "adb_connect",
+				Description: "Auto-detect and connect to wireless ADB. The debugging port changes on every reconnect — this finds the current port and connects. Run this BEFORE any adb command if you get 'device not found' or 'connection refused'. Actions: 'connect' (auto-detect + connect), 'port' (just return current port), 'status' (check connection).",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"action": map[string]interface{}{
+							"type":        "string",
+							"description": "Action: connect, port, or status (default: connect)",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: ToolDefFunc{
 				Name:        "notify",
 				Description: "Send an Android notification via Termux:API.",
 				Parameters: map[string]interface{}{
@@ -275,7 +290,7 @@ func (t *Toolbox) ExecTimeout(command string, timeout int) string {
 	cmd.Dir = t.home
 
 	// Create new process group so we can kill all children on timeout
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcGroup(cmd)
 
 	// Termux environment
 	cmd.Env = append(os.Environ(),
@@ -296,9 +311,7 @@ func (t *Toolbox) ExecTimeout(command string, timeout int) string {
 		// completed
 	case <-time.After(time.Duration(timeout) * time.Second):
 		// Kill entire process group (negative PID) to prevent zombie children
-		if cmd.Process != nil {
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
+		killProcGroup(cmd)
 		return fmt.Sprintf("[timeout after %ds]", timeout)
 	}
 
@@ -456,6 +469,19 @@ func (t *Toolbox) Env() string {
 		sb.WriteString("\n")
 	}
 	return sb.String()
+}
+
+func (t *Toolbox) AdbConnect(action string) string {
+	if action == "" {
+		action = "connect"
+	}
+	script := filepath.Join(t.home, "bin", "adb-auto.sh")
+	bash := "/data/data/com.termux/files/usr/bin/bash"
+	out, err := exec.Command(bash, script, action).CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("error: %s\n%s", err, string(out))
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func (t *Toolbox) DeviceInfo() string {
