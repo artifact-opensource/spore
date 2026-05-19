@@ -2,7 +2,7 @@
 
 **Single-binary autonomous agent runtime. Runs on anything with a pulse.**
 
-Spore is the deployment unit of [Artifact Virtual](https://artifactvirtual.com) — a portable, self-contained AI agent that colonizes any device through a single executable. No dependencies. No containers. No cloud. One binary lands, the host comes alive.
+Spore is the deployment unit of [Symbiote](https://github.com/artifact-opensource/symbiote) — a portable, self-contained AI agent that colonizes any device through a single executable. No dependencies. No containers. No cloud. One binary lands, the host comes alive.
 
 
 ## What Is This
