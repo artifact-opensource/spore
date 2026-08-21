@@ -51,7 +51,7 @@ func TestCommandCentreAPIListsSharedFirmware(t *testing.T) {
 	}
 	found := false
 	for _, item := range state.FirmwareCatalog {
-		if item.Path == firmware {
+		if item.Source == "shared:firmware.bin" && item.Path == "firmware.bin" {
 			found = true
 		}
 	}
@@ -89,7 +89,7 @@ func TestCommandCentreFirmwareInstallCopiesAsset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/command-centre/firmware", strings.NewReader(`{"action":"install","source":"micropython.uf2"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/command-centre/firmware", strings.NewReader(`{"action":"install","source":"shared:micropython.uf2"}`))
 	w := httptest.NewRecorder()
 	h.commandCentreFirmware(w, req)
 
@@ -109,7 +109,7 @@ func TestCommandCentreFirmwareFlashQueuesWithoutTooling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/command-centre/firmware", strings.NewReader(`{"action":"flash","source":"bundle.bin"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/command-centre/firmware", strings.NewReader(`{"action":"flash","source":"shared:bundle.bin"}`))
 	w := httptest.NewRecorder()
 	h.commandCentreFirmware(w, req)
 

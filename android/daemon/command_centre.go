@@ -47,11 +47,12 @@ type storageView struct {
 }
 
 type assetView struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Type string `json:"type"`
-	Size int64  `json:"size"`
-	URL  string `json:"url,omitempty"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Source string `json:"source,omitempty"`
+	Type   string `json:"type"`
+	Size   int64  `json:"size"`
+	URL    string `json:"url,omitempty"`
 }
 
 type rgbProfileView struct {
@@ -169,8 +170,12 @@ func (h *apiHandler) commandCentreFirmware(w http.ResponseWriter, r *http.Reques
 
 	switch req.Action {
 	case "install", "":
-		target := filepath.Join(cfg.SecondaryFirmwareDir, filepath.Base(source))
-		if err := copyFile(source, target); err != nil {
+		target, err := joinUnderRoot(cfg.SecondaryFirmwareDir, filepath.Base(source))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := copyFile(filepath.Dir(source), source, cfg.SecondaryFirmwareDir, target); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -208,7 +213,7 @@ func (h *apiHandler) buildCommandCentreState(cfg *core.Config) commandCentreStat
 		Config:          &configView,
 		Providers:       providerViews(),
 		Storage:         storageView{DataDir: cfg.DataDir(), StorageDir: cfg.StorageDir, SharedDir: cfg.SharedDir, SecondaryFirmwareDir: cfg.SecondaryFirmwareDir},
-		SharedFiles:     listAssets(cfg.SharedDir, cfg.SharedDir),
+		SharedFiles:     listAssets(cfg.SharedDir, cfg.SharedDir, "shared"),
 		FirmwareCatalog: listFirmwareAssets(cfg, projectDir),
 		RGBProfiles:     defaultRGBProfiles(),
 		Tools:           detectESPTools(),
@@ -241,7 +246,7 @@ func listFirmwareAssets(cfg *core.Config, projectDir string) []assetView {
 		roots = append(roots, projectDir)
 	}
 	for _, root := range roots {
-		for _, item := range listAssets(root, root) {
+		for _, item := range listAssets(root, root, firmwareSourcePrefix(root, cfg, projectDir)) {
 			if !isFirmwareAsset(item.Path) || seen[item.Path] {
 				continue
 			}
@@ -253,7 +258,7 @@ func listFirmwareAssets(cfg *core.Config, projectDir string) []assetView {
 	return out
 }
 
-func listAssets(root, labelBase string) []assetView {
+func listAssets(root, labelBase, sourcePrefix string) []assetView {
 	if root == "" {
 		return nil
 	}
@@ -275,12 +280,14 @@ func listAssets(root, labelBase string) []assetView {
 			}
 			return nil
 		}
+		relPath := filepath.ToSlash(rel)
 		entries = append(entries, assetView{
-			Name: info.Name(),
-			Path: path,
-			Type: strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
-			Size: info.Size(),
-			URL:  sharedURLForPath(root, path),
+			Name:   info.Name(),
+			Path:   relPath,
+			Source: sourcePrefix + ":" + relPath,
+			Type:   strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
+			Size:   info.Size(),
+			URL:    sharedURLForPath(root, path),
 		})
 		if len(entries) >= 100 {
 			return io.EOF
@@ -374,6 +381,54 @@ func detectESP32Project() string {
 	}
 }
 
+func firmwareSourcePrefix(root string, cfg *core.Config, projectDir string) string {
+	switch root {
+	case cfg.SharedDir:
+		return "shared"
+	case cfg.SecondaryFirmwareDir:
+		return "secondary"
+	case projectDir:
+		return "project"
+	default:
+		return "shared"
+	}
+}
+
+func commandCentreRoot(prefix string, cfg *core.Config, projectDir string) (string, error) {
+	switch prefix {
+	case "shared":
+		return cfg.SharedDir, nil
+	case "secondary":
+		return cfg.SecondaryFirmwareDir, nil
+	case "project":
+		if projectDir == "" {
+			return "", fmt.Errorf("project directory unavailable")
+		}
+		return projectDir, nil
+	default:
+		return "", fmt.Errorf("unsupported source: %s", prefix)
+	}
+}
+
+func joinUnderRoot(root, rel string) (string, error) {
+	rel = filepath.Clean(rel)
+	candidate := filepath.Join(root, rel)
+	candidate = filepath.Clean(candidate)
+	relCheck, err := filepath.Rel(root, candidate)
+	if err != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes root")
+	}
+	return candidate, nil
+}
+
+func pathWithinRoot(root, candidate string) bool {
+	if root == "" || candidate == "" {
+		return false
+	}
+	rel, err := filepath.Rel(root, candidate)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
 func isFirmwareAsset(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".bin", ".uf2", ".hex", ".img", ".py", ".lua", ".json", ".c":
@@ -384,29 +439,31 @@ func isFirmwareAsset(path string) bool {
 }
 
 func resolveCommandCentrePath(cfg *core.Config, requested string) (string, error) {
-	requested = filepath.Clean(requested)
-	roots := []string{cfg.SharedDir, cfg.SecondaryFirmwareDir}
-	if projectDir := detectESP32Project(); projectDir != "" {
-		roots = append(roots, projectDir)
+	parts := strings.SplitN(requested, ":", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return "", fmt.Errorf("invalid source: %s", requested)
 	}
-	for _, root := range roots {
-		candidate := requested
-		if !filepath.IsAbs(candidate) {
-			candidate = filepath.Join(root, requested)
-		}
-		candidate = filepath.Clean(candidate)
-		rel, err := filepath.Rel(root, candidate)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-			continue
-		}
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
+	root, err := commandCentreRoot(parts[0], cfg, detectESP32Project())
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("source not found: %s", requested)
+	candidate, err := joinUnderRoot(root, parts[1])
+	if err != nil {
+		return "", err
+	}
+	if !pathWithinRoot(root, candidate) {
+		return "", fmt.Errorf("path escapes root")
+	}
+	if _, err := os.Stat(candidate); err != nil {
+		return "", fmt.Errorf("source not found: %s", requested)
+	}
+	return candidate, nil
 }
 
-func copyFile(src, dst string) error {
+func copyFile(srcRoot, src, dstRoot, dst string) error {
+	if !pathWithinRoot(srcRoot, src) || !pathWithinRoot(dstRoot, dst) {
+		return fmt.Errorf("path escapes managed roots")
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -554,7 +611,7 @@ function renderState(){
   rgb.innerHTML=state.rgb_profiles.map(function(p){return '<option value="'+p.id+'" '+(p.id===cfg.rgb_profile?'selected':'')+'>'+p.name+'</option>';}).join('');
   document.getElementById('tools').innerHTML=state.tools.map(function(t){return '<div class="item"><strong>'+t.name+'</strong><span class="pill '+(t.available?'ok':'bad')+'">'+(t.available?'available':'not found')+'</span><small>'+t.description+(t.command?' · '+t.command:'')+'</small></div>';}).join('') || '<div class="muted">No tooling detected.</div>';
   document.getElementById('sharedFiles').innerHTML=(state.shared_files||[]).map(function(f){return '<div class="item"><strong>'+f.name+'</strong><small>'+f.path+'</small></div>';}).join('') || '<div class="muted">Shared directory is empty.</div>';
-  document.getElementById('firmware').innerHTML=(state.firmware_catalog||[]).map(function(f){return '<div class="item"><strong>'+f.name+'</strong><small>'+f.path+'</small><div class="actions"><button onclick="installFirmware(''+esc(f.path)+'')">Install</button><button class="ghost" onclick="flashFirmware(''+esc(f.path)+'')">Flash</button></div></div>';}).join('') || '<div class="muted">No firmware or Lua/MicroPython assets detected yet.</div>';
+  document.getElementById('firmware').innerHTML=(state.firmware_catalog||[]).map(function(f){return '<div class="item"><strong>'+f.name+'</strong><small>'+f.path+'</small><div class="actions"><button data-source="'+esc(f.source)+'" onclick="installFirmware(this.dataset.source)">Install</button><button class="ghost" data-source="'+esc(f.source)+'" onclick="flashFirmware(this.dataset.source)">Flash</button></div></div>';}).join('') || '<div class="muted">No firmware or Lua/MicroPython assets detected yet.</div>';
 }
 function esc(v){return String(v).replace(/'/g,"&#39;")}
 async function sendPrompt(){

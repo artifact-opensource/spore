@@ -220,9 +220,17 @@ func (c *Config) normalize() {
 		c.RGBProfile = "spore-default"
 	}
 
-	for _, dir := range []string{c.StorageDir, c.SharedDir, c.SecondaryFirmwareDir} {
-		if dir != "" {
-			os.MkdirAll(dir, 0755)
+	managedDirs := []struct {
+		root string
+		dir  string
+	}{
+		{root: dataDir, dir: c.StorageDir},
+		{root: dataDir, dir: c.SharedDir},
+		{root: c.SharedDir, dir: c.SecondaryFirmwareDir},
+	}
+	for _, item := range managedDirs {
+		if pathWithinRoot(item.root, item.dir) {
+			os.MkdirAll(item.dir, 0755)
 		}
 	}
 }
@@ -232,9 +240,21 @@ func normalizeDir(base, value, fallback string) string {
 		value = fallback
 	}
 	if filepath.IsAbs(value) {
-		return filepath.Clean(value)
+		rel, err := filepath.Rel(base, value)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return filepath.Clean(value)
+		}
+		value = filepath.Base(value)
 	}
 	return filepath.Clean(filepath.Join(base, value))
+}
+
+func pathWithinRoot(root, candidate string) bool {
+	if root == "" || candidate == "" {
+		return false
+	}
+	rel, err := filepath.Rel(root, candidate)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
 // ToProviderConfig converts to provider.ProviderConfig
