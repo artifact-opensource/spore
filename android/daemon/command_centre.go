@@ -108,7 +108,11 @@ func (h *apiHandler) commandCentreAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, key := range []string{"provider", "model", "base_url", "api_key", "daemon_port", "device_name", "storage_dir", "shared_dir", "secondary_firmware_dir", "rgb_profile"} {
 			if val, ok := payload[key]; ok {
-				cfg.Set(key, fmt.Sprintf("%v", val))
+				str := fmt.Sprintf("%v", val)
+				if key == "api_key" && str == "" {
+					continue
+				}
+				cfg.Set(key, str)
 			}
 		}
 		if err := cfg.Save(cfg.ConfigPath()); err != nil {
@@ -198,8 +202,10 @@ func (h *apiHandler) commandCentreFirmware(w http.ResponseWriter, r *http.Reques
 
 func (h *apiHandler) buildCommandCentreState(cfg *core.Config) commandCentreState {
 	projectDir := detectESP32Project()
+	configView := *cfg
+	configView.APIKey = ""
 	return commandCentreState{
-		Config:          cfg,
+		Config:          &configView,
 		Providers:       providerViews(),
 		Storage:         storageView{DataDir: cfg.DataDir(), StorageDir: cfg.StorageDir, SharedDir: cfg.SharedDir, SecondaryFirmwareDir: cfg.SecondaryFirmwareDir},
 		SharedFiles:     listAssets(cfg.SharedDir, cfg.SharedDir),
@@ -379,21 +385,22 @@ func isFirmwareAsset(path string) bool {
 
 func resolveCommandCentrePath(cfg *core.Config, requested string) (string, error) {
 	requested = filepath.Clean(requested)
-	candidates := []string{}
-	if filepath.IsAbs(requested) {
-		candidates = append(candidates, requested)
-	} else {
-		candidates = append(candidates,
-			filepath.Join(cfg.SharedDir, requested),
-			filepath.Join(cfg.SecondaryFirmwareDir, requested),
-		)
-		if projectDir := detectESP32Project(); projectDir != "" {
-			candidates = append(candidates, filepath.Join(projectDir, requested))
-		}
+	roots := []string{cfg.SharedDir, cfg.SecondaryFirmwareDir}
+	if projectDir := detectESP32Project(); projectDir != "" {
+		roots = append(roots, projectDir)
 	}
-	for _, candidate := range candidates {
+	for _, root := range roots {
+		candidate := requested
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(root, requested)
+		}
+		candidate = filepath.Clean(candidate)
+		rel, err := filepath.Rel(root, candidate)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			continue
+		}
 		if _, err := os.Stat(candidate); err == nil {
-			return filepath.Clean(candidate), nil
+			return candidate, nil
 		}
 	}
 	return "", fmt.Errorf("source not found: %s", requested)
@@ -536,7 +543,7 @@ async function loadState(){
 function renderState(){
   const cfg=state.config;
   const providers=document.getElementById('provider');
-  providers.innerHTML=state.providers.map(p=>`<option value="${p.id}" ${p.id===cfg.provider?'selected':''}>${p.name}</option>`).join('');
+  providers.innerHTML=state.providers.map(function(p){return '<option value="'+p.id+'" '+(p.id===cfg.provider?'selected':'')+'>'+p.name+'</option>';}).join('');
   document.getElementById('model').value=cfg.model||'';
   document.getElementById('baseUrl').value=cfg.base_url||'';
   document.getElementById('apiKey').value=cfg.api_key||'';
@@ -544,10 +551,10 @@ function renderState(){
   document.getElementById('storageDir').value=cfg.storage_dir||'';
   document.getElementById('secondaryDir').value=cfg.secondary_firmware_dir||'';
   const rgb=document.getElementById('rgbProfile');
-  rgb.innerHTML=state.rgb_profiles.map(p=>`<option value="${p.id}" ${p.id===cfg.rgb_profile?'selected':''}>${p.name}</option>`).join('');
-  document.getElementById('tools').innerHTML=state.tools.map(t=>`<div class="item"><strong>${t.name}</strong><span class="pill ${t.available?'ok':'bad'}">${t.available?'available':'not found'}</span><small>${t.description}${t.command?` · ${t.command}`:''}</small></div>`).join('') || '<div class="muted">No tooling detected.</div>';
-  document.getElementById('sharedFiles').innerHTML=(state.shared_files||[]).map(f=>`<div class="item"><strong>${f.name}</strong><small>${f.path}</small></div>`).join('') || '<div class="muted">Shared directory is empty.</div>';
-  document.getElementById('firmware').innerHTML=(state.firmware_catalog||[]).map(f=>`<div class="item"><strong>${f.name}</strong><small>${f.path}</small><div class="actions"><button onclick="installFirmware('${esc(f.path)}')">Install</button><button class="ghost" onclick="flashFirmware('${esc(f.path)}')">Flash</button></div></div>`).join('') || '<div class="muted">No firmware or Lua/MicroPython assets detected yet.</div>';
+  rgb.innerHTML=state.rgb_profiles.map(function(p){return '<option value="'+p.id+'" '+(p.id===cfg.rgb_profile?'selected':'')+'>'+p.name+'</option>';}).join('');
+  document.getElementById('tools').innerHTML=state.tools.map(function(t){return '<div class="item"><strong>'+t.name+'</strong><span class="pill '+(t.available?'ok':'bad')+'">'+(t.available?'available':'not found')+'</span><small>'+t.description+(t.command?' · '+t.command:'')+'</small></div>';}).join('') || '<div class="muted">No tooling detected.</div>';
+  document.getElementById('sharedFiles').innerHTML=(state.shared_files||[]).map(function(f){return '<div class="item"><strong>'+f.name+'</strong><small>'+f.path+'</small></div>';}).join('') || '<div class="muted">Shared directory is empty.</div>';
+  document.getElementById('firmware').innerHTML=(state.firmware_catalog||[]).map(function(f){return '<div class="item"><strong>'+f.name+'</strong><small>'+f.path+'</small><div class="actions"><button onclick="installFirmware(''+esc(f.path)+'')">Install</button><button class="ghost" onclick="flashFirmware(''+esc(f.path)+'')">Flash</button></div></div>';}).join('') || '<div class="muted">No firmware or Lua/MicroPython assets detected yet.</div>';
 }
 function esc(v){return String(v).replace(/'/g,"&#39;")}
 async function sendPrompt(){
@@ -570,14 +577,14 @@ async function saveSettings(){
 async function installFirmware(path){
   const res=await fetch('/api/command-centre/firmware',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'install',source:path})});
   const data=await res.json();
-  alert(data.status + (data.target ? `\n${data.target}` : ''));
+  alert(data.status + (data.target ? '\n'+data.target : ''));
   await loadState();
 }
 async function flashFirmware(path){
   const port=prompt('Serial port for esptool (leave blank to queue a flash job):','');
   const res=await fetch('/api/command-centre/firmware',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'flash',source:path,port:port||''})});
   const data=await res.json();
-  alert((data.status||'done') + (data.output ? `\n\n${data.output}` : ''));
+  alert((data.status||'done') + (data.output ? '\n\n'+data.output : ''));
 }
 loadState();
 </script>

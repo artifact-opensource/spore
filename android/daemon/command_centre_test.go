@@ -16,8 +16,8 @@ import (
 type stubMemory struct{}
 
 func (stubMemory) Search(string, int) []core.SearchResult { return nil }
-func (stubMemory) Ingest(string) (int, error)            { return 0, nil }
-func (stubMemory) Stats() core.MemoryStats               { return core.MemoryStats{} }
+func (stubMemory) Ingest(string) (int, error)             { return 0, nil }
+func (stubMemory) Stats() core.MemoryStats                { return core.MemoryStats{} }
 
 func newTestHandler(t *testing.T) (*apiHandler, *core.Config) {
 	t.Helper()

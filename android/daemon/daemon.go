@@ -164,7 +164,7 @@ func autoConnect(spec string, log func(string)) {
 		log(fmt.Sprintf("connecting tunnel: %s", spec))
 		// Use exec to run ssh — Termux has openssh
 		cmd := fmt.Sprintf("ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -N %s", spec)
-		_ = cmd // would use tools.Exec in real implementation
+		_ = cmd                      // would use tools.Exec in real implementation
 		time.Sleep(30 * time.Second) // reconnect delay
 	}
 }

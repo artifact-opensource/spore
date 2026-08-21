@@ -180,7 +180,7 @@ func (c *Config) Set(key, value string) {
 		oldShared := c.SharedDir
 		c.SharedDir = value
 		if c.SecondaryFirmwareDir == "" || (oldShared != "" && strings.HasPrefix(filepath.Clean(c.SecondaryFirmwareDir), filepath.Clean(oldShared))) {
-			c.SecondaryFirmwareDir = filepath.Join(value, "secondary")
+			c.SecondaryFirmwareDir = "secondary"
 		}
 	case "secondary_firmware_dir":
 		c.SecondaryFirmwareDir = value
