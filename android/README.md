@@ -80,6 +80,9 @@ chmod +x spore-*
 | Ollama | `spore config provider ollama` |
 | OpenAI | `spore config provider openai` |
 | Anthropic | `spore config provider anthropic` |
+| Google Gemini | `spore config provider google` |
+| OpenRouter | `spore config provider openrouter` |
+| NVIDIA NIM | `spore config provider nvidia_nim` |
 | Local/llamafile | `spore config provider local` |
 | Custom | `spore config provider custom` + `spore config base_url <url>` |
 

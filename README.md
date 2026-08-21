@@ -71,7 +71,7 @@ Spore is model-agnostic. It speaks OpenAI-compatible API to any backend:
 
 - **GitHub Copilot** — built-in proxy, free tier (default)
 - **Ollama** — local models, any size
-- **OpenAI / Anthropic / Custom** — any endpoint that speaks `/v1/chat/completions`
+- **OpenAI / Anthropic / Google / OpenRouter / NVIDIA NIM / Custom** — any endpoint that speaks `/v1/chat/completions`
 - **Artifact Engine** — our own Vulkan inference engine (coming soon)
 
 ## The Vision
