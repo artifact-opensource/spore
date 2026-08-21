@@ -177,9 +177,12 @@ type apiHandler struct {
 
 func ServeHTTP(agent *core.Agent, port string, openBrowser bool) {
 	h := &apiHandler{agent: agent}
+	cfg := agent.Config()
+	cfg.Save(cfg.ConfigPath())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h.webchat)
+	mux.HandleFunc("/command-centre", h.commandCentrePage)
 	mux.HandleFunc("/health", h.health)
 	mux.HandleFunc("/run", h.run)
 	mux.HandleFunc("/search", h.search)
@@ -187,6 +190,9 @@ func ServeHTTP(agent *core.Agent, port string, openBrowser bool) {
 	mux.HandleFunc("/exec", h.execCmd)
 	mux.HandleFunc("/api/sessions", h.sessions)
 	mux.HandleFunc("/api/sessions/", h.sessionByID)
+	mux.HandleFunc("/api/command-centre", h.commandCentreAPI)
+	mux.HandleFunc("/api/command-centre/firmware", h.commandCentreFirmware)
+	mux.Handle("/shared/", http.StripPrefix("/shared/", http.FileServer(http.Dir(cfg.SharedDir))))
 
 	addr := "0.0.0.0:" + port
 	fmt.Printf("  serving on %s\n", addr)

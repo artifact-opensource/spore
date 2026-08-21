@@ -554,19 +554,20 @@ func configPath() string {
 }
 
 func printHelp() {
-	fmt.Fprintf(os.Stderr, `
-  %s  spore — autonomous agent runtime (Android / Windows / Xbox / Linux)
+	fmt.Fprint(os.Stderr, banner)
+	fmt.Fprint(os.Stderr, `
+  spore — autonomous agent runtime (Android / Windows / Xbox / Linux)
 
-  %sstart / stop%s
-    spore start [port]         start everything (webchat + discord + copilot)
+  start / stop
+    spore start [port]         start everything (webchat + command centre + discord + copilot)
     spore stop                 stop spore
 
-  %sagent%s
+  agent
     spore                      interactive chat
     spore run <prompt>         single-shot agent
     spore chat                 interactive mode
 
-  %sdaemon%s
+  daemon
     spore daemon start         start background agent
     spore daemon stop          stop daemon
     spore daemon status        check daemon
@@ -574,61 +575,54 @@ func printHelp() {
     spore serve [port]         HTTP API server (default: 8422)
     spore web [port]           open webchat in browser
 
-  %sshell%s
+  shell
     spore sh                   interactive shell with tools
     spore exec <command>       run a command
 
-  %smemory%s
+  memory
     spore search <query>       search indexed files
     spore ingest [path]        index files
 
-  %snetwork%s
+  network
     spore tunnel L:R:host      forward tunnel
     spore tunnel reverse R:L:host  reverse tunnel
     spore scan [target]        network scan (default: 192.168.1.0/24)
     spore proxy [port]         SOCKS5 proxy (default: 1080)
 
-  %sprocess%s
+  process
     spore ps                   list managed processes
     spore kill <pid|name>      kill a managed process
 
-  %sconfig%s
+  config
     spore config               show config
     spore config <k> <v>       set config value
     spore setup                first-time setup
-    spore setup --profile xbox apply Xbox preset (local, qwen3.5:9b)
     spore status               full system status
+    keys: provider model base_url api_key shared_dir storage_dir secondary_firmware_dir rgb_profile daemon_port
 
-  %sproviders%s
-    spore config provider copilot     GitHub Copilot (built-in proxy)
-    spore config provider ollama      Ollama (local)
-    spore config provider openai      OpenAI API
-    spore config provider anthropic   Anthropic API
-    spore config provider local       llamafile / any OpenAI-compatible
-    spore config provider custom      custom endpoint
+  providers
+    spore config provider copilot
+    spore config provider google
+    spore config provider anthropic
+    spore config provider openai
+    spore config provider openrouter
+    spore config provider nvidia_nim
+    spore config provider ollama
+    spore config provider local
 
-  %scopilot%s
-    spore copilot auth          authenticate with GitHub
-    spore copilot start         start proxy standalone
-    spore copilot health        check proxy status
+  web
+    /                         full session webchat
+    /command-centre          command centre UI with firmware + RGB controls
+    /shared/                 shared directory browser
 
-  %sdiscord%s
-    spore discord               standalone Discord bot
+  xbox / system tools
+    gpu_status
+    service_manager
+    network_info
+    system_info
+    file_server
 
-  %sxbox / system tools%s
-    gpu_status                  GPU temp, VRAM, utilization
-    service_manager             list/start/stop/kill processes
-    network_info                interfaces, ports, connections, DNS
-    system_info                 CPU, RAM, disk, GPU, OS overview
-    file_server                 serve directory over HTTP (file transfer)
-
-  %splatforms%s
-    Android (ARM64)   — Termux, full device control, ADB
-    Windows (x64)     — PowerShell, WMI, native shell
-    Xbox Dev Mode     — via Windows subsystem, GPU/process tools
-    Linux (x64/ARM64) — full POSIX, /proc, standard tools
-
-`, banner, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset, bold, reset)
+`)
 }
 
 // --- Output helpers ---

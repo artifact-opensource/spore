@@ -48,6 +48,8 @@ releases/  — Pre-built binaries
 
 Gen 2 (`android/`) is the production runtime despite the directory name — it runs on Android, Windows, Linux, and Xbox. The name is vestigial from its origin on a Samsung Z Fold 5.
 
+An `esp32_s3/` companion scaffold is also included for native ESP32-S3 activity lights, ESP-NOW hooks, and staged firmware assets.
+
 ### Core Components
 
 ```
@@ -57,6 +59,7 @@ tools/tools.go       — Universal: exec, read, write, search, web_fetch
 tools/android.go     — Android: apps, camera, SMS, sensors, ADB
 tools/xbox.go        — Xbox/Windows/Linux: GPU, services, network, sysinfo
 daemon/webchat.go    — Built-in web UI with session management
+command-centre       — /command-centre UI for providers, firmware, shared storage, RGB
 discord/discord.go   — Discord Gateway v10 bot
 copilot/copilot.go   — Embedded GitHub Copilot proxy (free LLM access)
 memory/memory.go     — BM25 search over indexed files

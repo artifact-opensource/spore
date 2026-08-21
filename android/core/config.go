@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/artifact-virtual/symbiote-android/provider"
 )
@@ -24,6 +25,12 @@ type Config struct {
 	// Agent settings
 	MaxIterations int `json:"max_iterations,omitempty"`
 
+	// Storage and sharing
+	StorageDir           string `json:"storage_dir,omitempty"`
+	SharedDir            string `json:"shared_dir,omitempty"`
+	SecondaryFirmwareDir string `json:"secondary_firmware_dir,omitempty"`
+	RGBProfile           string `json:"rgb_profile,omitempty"`
+
 	// Discord bot
 	DiscordToken  string `json:"discord_token,omitempty"`
 	DiscordPrefix string `json:"discord_prefix,omitempty"`
@@ -38,16 +45,20 @@ type Config struct {
 func DefaultConfig() *Config {
 	hostname, _ := os.Hostname()
 	return &Config{
-		Provider:      "ollama",
-		Model:         "llama3.2:3b",
-		BaseURL:       "http://127.0.0.1:11434",
-		MaxTokens:     4096,
-		Temperature:   0.7,
-		MaxIterations: 25,
-		System:        DefaultSystemPrompt,
-		DaemonPort:    "8422",
-		DiscordPrefix: "!",
-		DeviceName:    hostname,
+		Provider:             "ollama",
+		Model:                "llama3.2:3b",
+		BaseURL:              "http://127.0.0.1:11434",
+		MaxTokens:            4096,
+		Temperature:          0.7,
+		MaxIterations:        25,
+		System:               DefaultSystemPrompt,
+		DaemonPort:           "8422",
+		DiscordPrefix:        "!",
+		DeviceName:           hostname,
+		RGBProfile:           "spore-default",
+		StorageDir:           "storage",
+		SharedDir:            "shared",
+		SecondaryFirmwareDir: "secondary",
 	}
 }
 
@@ -55,16 +66,20 @@ func DefaultConfig() *Config {
 // Uses local Ollama with qwen3.5:9b — fits in Xbox's 16GB shared memory.
 func XboxConfig() *Config {
 	return &Config{
-		Provider:      "local",
-		Model:         "qwen3.5:9b",
-		BaseURL:       "http://127.0.0.1:8080/v1",
-		MaxTokens:     4096,
-		Temperature:   0.7,
-		MaxIterations: 25,
-		System:        XboxSystemPrompt,
-		DaemonPort:    "8422",
-		DiscordPrefix: "!",
-		DeviceName:    "xbox",
+		Provider:             "local",
+		Model:                "qwen3.5:9b",
+		BaseURL:              "http://127.0.0.1:8080/v1",
+		MaxTokens:            4096,
+		Temperature:          0.7,
+		MaxIterations:        25,
+		System:               XboxSystemPrompt,
+		DaemonPort:           "8422",
+		DiscordPrefix:        "!",
+		DeviceName:           "xbox",
+		RGBProfile:           "spore-default",
+		StorageDir:           "storage",
+		SharedDir:            "shared",
+		SecondaryFirmwareDir: "secondary",
 	}
 }
 
@@ -95,12 +110,14 @@ func LoadConfig(path string) *Config {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		os.MkdirAll(filepath.Dir(path), 0755)
+		cfg.normalize()
 		cfg.Save(path)
 		return cfg
 	}
 
 	json.Unmarshal(data, cfg)
 	cfg.path = path
+	cfg.normalize()
 	return cfg
 }
 
@@ -111,6 +128,7 @@ func LoadProfile(name, path string) *Config {
 	case "xbox":
 		cfg := XboxConfig()
 		cfg.path = path
+		cfg.normalize()
 		return cfg
 	default:
 		return LoadConfig(path)
@@ -121,6 +139,8 @@ func (c *Config) Save(path string) error {
 	if path == "" {
 		path = c.path
 	}
+	c.path = path
+	c.normalize()
 	os.MkdirAll(filepath.Dir(path), 0755)
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -154,6 +174,18 @@ func (c *Config) Set(key, value string) {
 		c.DiscordToken = value
 	case "discord_prefix":
 		c.DiscordPrefix = value
+	case "storage_dir":
+		c.StorageDir = value
+	case "shared_dir":
+		oldShared := c.SharedDir
+		c.SharedDir = value
+		if c.SecondaryFirmwareDir == "" || (oldShared != "" && strings.HasPrefix(filepath.Clean(c.SecondaryFirmwareDir), filepath.Clean(oldShared))) {
+			c.SecondaryFirmwareDir = filepath.Join(value, "secondary")
+		}
+	case "secondary_firmware_dir":
+		c.SecondaryFirmwareDir = value
+	case "rgb_profile":
+		c.RGBProfile = value
 	case "max_iterations":
 		fmt.Sscanf(value, "%d", &c.MaxIterations)
 	case "max_tokens":
@@ -161,10 +193,48 @@ func (c *Config) Set(key, value string) {
 	case "temperature":
 		fmt.Sscanf(value, "%f", &c.Temperature)
 	}
+	c.normalize()
 }
 
 func (c *Config) ConfigPath() string {
 	return c.path
+}
+
+func (c *Config) DataDir() string {
+	if c.path == "" {
+		return ""
+	}
+	return filepath.Dir(c.path)
+}
+
+func (c *Config) normalize() {
+	dataDir := c.DataDir()
+	if dataDir == "" {
+		return
+	}
+
+	c.StorageDir = normalizeDir(dataDir, c.StorageDir, "storage")
+	c.SharedDir = normalizeDir(dataDir, c.SharedDir, "shared")
+	c.SecondaryFirmwareDir = normalizeDir(c.SharedDir, c.SecondaryFirmwareDir, "secondary")
+	if c.RGBProfile == "" {
+		c.RGBProfile = "spore-default"
+	}
+
+	for _, dir := range []string{c.StorageDir, c.SharedDir, c.SecondaryFirmwareDir} {
+		if dir != "" {
+			os.MkdirAll(dir, 0755)
+		}
+	}
+}
+
+func normalizeDir(base, value, fallback string) string {
+	if value == "" {
+		value = fallback
+	}
+	if filepath.IsAbs(value) {
+		return filepath.Clean(value)
+	}
+	return filepath.Clean(filepath.Join(base, value))
 }
 
 // ToProviderConfig converts to provider.ProviderConfig

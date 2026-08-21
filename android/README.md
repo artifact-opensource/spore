@@ -40,6 +40,7 @@ chmod +x spore-*
 ### Core Agent
 - **Agentic loop** — tool-calling AI that executes actions, not descriptions
 - **Webchat UI** — built-in HTTP server with session management
+- **Command Centre** — provider, storage, shared firmware, RGB, and ESP companion controls
 - **Discord bot** — auto-connects if token configured
 - **Memory** — BM25 search over indexed files
 - **Sessions** — persistent conversation history
