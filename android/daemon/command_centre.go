@@ -288,7 +288,7 @@ func listAssets(root, labelBase, sourcePrefix string) []assetView {
 			URL:    sharedURLForPath(root, path),
 		})
 		if len(entries) >= 100 {
-			return io.EOF
+			return filepath.SkipAll
 		}
 		return nil
 	})
@@ -623,7 +623,16 @@ async function sendPrompt(){
 }
 async function saveSettings(){
   document.getElementById('saveState').textContent='saving...';
-  const payload={provider:provider.value,model:model.value,base_url:baseUrl.value,api_key:apiKey.value,shared_dir:sharedDir.value,storage_dir:storageDir.value,secondary_firmware_dir:secondaryDir.value,rgb_profile:rgbProfile.value};
+  const payload={
+    provider:document.getElementById('provider').value,
+    model:document.getElementById('model').value,
+    base_url:document.getElementById('baseUrl').value,
+    api_key:document.getElementById('apiKey').value,
+    shared_dir:document.getElementById('sharedDir').value,
+    storage_dir:document.getElementById('storageDir').value,
+    secondary_firmware_dir:document.getElementById('secondaryDir').value,
+    rgb_profile:document.getElementById('rgbProfile').value
+  };
   const res=await fetch('/api/command-centre',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   state=await res.json();
   renderState();

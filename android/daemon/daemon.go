@@ -178,7 +178,6 @@ type apiHandler struct {
 func ServeHTTP(agent *core.Agent, port string, openBrowser bool) {
 	h := &apiHandler{agent: agent}
 	cfg := agent.Config()
-	cfg.Save(cfg.ConfigPath())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h.webchat)
