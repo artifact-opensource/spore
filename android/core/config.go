@@ -152,11 +152,12 @@ func (c *Config) Save(path string) error {
 func (c *Config) Set(key, value string) {
 	switch key {
 	case "provider":
-		c.Provider = value
-		// Auto-set base URL from registry
 		info := provider.LookupProvider(value)
 		if info != nil {
+			c.Provider = info.ID
 			c.BaseURL = info.BaseURL
+		} else {
+			c.Provider = value
 		}
 	case "model":
 		c.Model = value

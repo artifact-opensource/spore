@@ -91,7 +91,6 @@ func (h *apiHandler) commandCentrePage(w http.ResponseWriter, r *http.Request) {
 
 func (h *apiHandler) commandCentreAPI(w http.ResponseWriter, r *http.Request) {
 	cfg := h.agent.Config()
-	cfg.Save(cfg.ConfigPath())
 
 	switch r.Method {
 	case http.MethodGet:
@@ -133,7 +132,6 @@ func (h *apiHandler) commandCentreFirmware(w http.ResponseWriter, r *http.Reques
 	}
 
 	cfg := h.agent.Config()
-	cfg.Save(cfg.ConfigPath())
 
 	var req struct {
 		Action  string `json:"action"`
@@ -476,8 +474,8 @@ func copyFile(srcRoot, src, dstRoot, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
 		return err
 	}
 	return out.Close()

@@ -82,6 +82,23 @@ func TestCommandCentreAPIPersistsSettings(t *testing.T) {
 	}
 }
 
+func TestCommandCentreAPIDoesNotSaveOnRead(t *testing.T) {
+	h, cfg := newTestHandler(t)
+	cfg.Provider = "google"
+
+	req := httptest.NewRequest(http.MethodGet, "/api/command-centre", nil)
+	w := httptest.NewRecorder()
+	h.commandCentreAPI(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", w.Code, w.Body.String())
+	}
+	reloaded := core.LoadConfig(cfg.ConfigPath())
+	if reloaded.Provider != "ollama" {
+		t.Fatalf("provider persisted unexpectedly: %q", reloaded.Provider)
+	}
+}
+
 func TestCommandCentreFirmwareInstallCopiesAsset(t *testing.T) {
 	h, cfg := newTestHandler(t)
 	source := filepath.Join(cfg.SharedDir, "micropython.uf2")
@@ -123,5 +140,26 @@ func TestCommandCentreFirmwareFlashQueuesWithoutTooling(t *testing.T) {
 	}
 	if len(entries) == 0 {
 		t.Fatal("expected queued flash job")
+	}
+}
+
+func TestCommandCentreFirmwareDoesNotSaveConfig(t *testing.T) {
+	h, cfg := newTestHandler(t)
+	cfg.Provider = "google"
+	source := filepath.Join(cfg.SharedDir, "bundle.bin")
+	if err := os.WriteFile(source, []byte("fw"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/command-centre/firmware", strings.NewReader(`{"action":"flash","source":"shared:bundle.bin"}`))
+	w := httptest.NewRecorder()
+	h.commandCentreFirmware(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", w.Code, w.Body.String())
+	}
+	reloaded := core.LoadConfig(cfg.ConfigPath())
+	if reloaded.Provider != "ollama" {
+		t.Fatalf("provider persisted unexpectedly: %q", reloaded.Provider)
 	}
 }

@@ -113,17 +113,6 @@ var Registry = []ProviderInfo{
 		Protocol:    "openai",
 	},
 	{
-		ID:          "gemini",
-		Name:        "Google Gemini",
-		BaseURL:     "https://generativelanguage.googleapis.com/v1beta/openai",
-		AuthHeader:  "Authorization",
-		AuthPrefix:  "Bearer ",
-		Models:      []string{"gemini-2.5-flash-preview-04-17", "gemini-2.0-flash", "gemini-2.5-pro-preview-03-25"},
-		KeyEnvVar:   "GEMINI_API_KEY",
-		RequiresKey: true,
-		Protocol:    "openai",
-	},
-	{
 		ID:          "openrouter",
 		Name:        "OpenRouter",
 		BaseURL:     "https://openrouter.ai/api",
@@ -216,6 +205,9 @@ var Registry = []ProviderInfo{
 // LookupProvider returns provider info by ID
 func LookupProvider(id string) *ProviderInfo {
 	id = strings.ToLower(id)
+	if id == "gemini" {
+		id = "google"
+	}
 	for i := range Registry {
 		if Registry[i].ID == id {
 			return &Registry[i]

@@ -32,3 +32,16 @@ func TestSetSharedDirMovesSecondaryFirmwareDir(t *testing.T) {
 		t.Fatalf("secondary dir = %q", cfg.SecondaryFirmwareDir)
 	}
 }
+
+func TestSetProviderCanonicalizesGeminiAlias(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := LoadConfig(filepath.Join(tmp, "config.json"))
+	cfg.Set("provider", "gemini")
+
+	if cfg.Provider != "google" {
+		t.Fatalf("provider = %q", cfg.Provider)
+	}
+	if cfg.BaseURL != "https://generativelanguage.googleapis.com/v1beta/openai" {
+		t.Fatalf("base url = %q", cfg.BaseURL)
+	}
+}
