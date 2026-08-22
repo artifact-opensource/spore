@@ -264,10 +264,20 @@ func ensureDirWithinRoot(root, dir string) {
 	if err != nil {
 		return
 	}
-	safeDir := filepath.Clean(filepath.Join(root, rel))
-	if pathWithinRoot(root, safeDir) {
+	safeDir, err := joinWithinRoot(root, rel)
+	if err == nil && pathWithinRoot(root, safeDir) {
 		os.MkdirAll(safeDir, 0755)
 	}
+}
+
+func joinWithinRoot(root, rel string) (string, error) {
+	rel = filepath.Clean(rel)
+	candidate := filepath.Clean(filepath.Join(root, rel))
+	relCheck, err := filepath.Rel(root, candidate)
+	if err != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes root")
+	}
+	return candidate, nil
 }
 
 // ToProviderConfig converts to provider.ProviderConfig

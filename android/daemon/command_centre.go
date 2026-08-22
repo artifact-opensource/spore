@@ -466,15 +466,35 @@ func copyFile(srcRoot, src, dstRoot, dst string) error {
 	if !pathWithinRoot(srcRoot, src) || !pathWithinRoot(dstRoot, dst) {
 		return fmt.Errorf("path escapes managed roots")
 	}
-	in, err := os.Open(src)
+	srcRel, err := filepath.Rel(srcRoot, src)
+	if err != nil {
+		return err
+	}
+	safeSrc, err := joinUnderRoot(srcRoot, srcRel)
+	if err != nil {
+		return err
+	}
+	dstRel, err := filepath.Rel(dstRoot, dst)
+	if err != nil {
+		return err
+	}
+	safeDst, err := joinUnderRoot(dstRoot, dstRel)
+	if err != nil {
+		return err
+	}
+	safeDstDir, err := joinUnderRoot(dstRoot, filepath.Dir(dstRel))
+	if err != nil {
+		return err
+	}
+	in, err := os.Open(safeSrc)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err := os.MkdirAll(safeDstDir, 0755); err != nil {
 		return err
 	}
-	out, err := os.Create(dst)
+	out, err := os.Create(safeDst)
 	if err != nil {
 		return err
 	}
