@@ -164,7 +164,7 @@ func autoConnect(spec string, log func(string)) {
 		log(fmt.Sprintf("connecting tunnel: %s", spec))
 		// Use exec to run ssh — Termux has openssh
 		cmd := fmt.Sprintf("ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -N %s", spec)
-		_ = cmd // would use tools.Exec in real implementation
+		_ = cmd                      // would use tools.Exec in real implementation
 		time.Sleep(30 * time.Second) // reconnect delay
 	}
 }
@@ -177,9 +177,11 @@ type apiHandler struct {
 
 func ServeHTTP(agent *core.Agent, port string, openBrowser bool) {
 	h := &apiHandler{agent: agent}
+	cfg := agent.Config()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", h.webchat)
+	mux.HandleFunc("/command-centre", h.commandCentrePage)
 	mux.HandleFunc("/health", h.health)
 	mux.HandleFunc("/run", h.run)
 	mux.HandleFunc("/search", h.search)
@@ -187,6 +189,9 @@ func ServeHTTP(agent *core.Agent, port string, openBrowser bool) {
 	mux.HandleFunc("/exec", h.execCmd)
 	mux.HandleFunc("/api/sessions", h.sessions)
 	mux.HandleFunc("/api/sessions/", h.sessionByID)
+	mux.HandleFunc("/api/command-centre", h.commandCentreAPI)
+	mux.HandleFunc("/api/command-centre/firmware", h.commandCentreFirmware)
+	mux.Handle("/shared/", http.StripPrefix("/shared/", http.FileServer(http.Dir(cfg.SharedDir))))
 
 	addr := "0.0.0.0:" + port
 	fmt.Printf("  serving on %s\n", addr)

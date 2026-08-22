@@ -99,6 +99,7 @@ textarea::placeholder{color:var(--dim)}
       <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()">☰</button>
       <div class="logo">S</div>
       <h1 id="chatTitle">Spore</h1>
+      <a href="/command-centre" style="margin-left:auto;color:#c4b5fd;text-decoration:none;font-size:12px">command centre</a>
       <div class="status"><span class="dot" id="dot"></span><span id="statusText">connected</span></div>
     </div>
     <div class="messages" id="msgs">

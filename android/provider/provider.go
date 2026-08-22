@@ -69,6 +69,17 @@ type ProviderInfo struct {
 
 var Registry = []ProviderInfo{
 	{
+		ID:          "copilot",
+		Name:        "GitHub Copilot Proxy",
+		BaseURL:     "http://127.0.0.1:3000",
+		AuthHeader:  "Authorization",
+		AuthPrefix:  "Bearer ",
+		Models:      []string{"gpt-4o", "gpt-4.1", "claude-3.5-sonnet"},
+		KeyEnvVar:   "",
+		RequiresKey: false,
+		Protocol:    "openai",
+	},
+	{
 		ID:          "openai",
 		Name:        "OpenAI",
 		BaseURL:     "https://api.openai.com",
@@ -91,24 +102,13 @@ var Registry = []ProviderInfo{
 		Protocol:    "anthropic",
 	},
 	{
-		ID:          "gemini",
+		ID:          "google",
 		Name:        "Google Gemini",
 		BaseURL:     "https://generativelanguage.googleapis.com/v1beta/openai",
 		AuthHeader:  "Authorization",
 		AuthPrefix:  "Bearer ",
 		Models:      []string{"gemini-2.5-flash-preview-04-17", "gemini-2.0-flash", "gemini-2.5-pro-preview-03-25"},
 		KeyEnvVar:   "GEMINI_API_KEY",
-		RequiresKey: true,
-		Protocol:    "openai",
-	},
-	{
-		ID:          "grok",
-		Name:        "xAI Grok",
-		BaseURL:     "https://api.x.ai",
-		AuthHeader:  "Authorization",
-		AuthPrefix:  "Bearer ",
-		Models:      []string{"grok-3", "grok-3-mini", "grok-2"},
-		KeyEnvVar:   "XAI_API_KEY",
 		RequiresKey: true,
 		Protocol:    "openai",
 	},
@@ -120,6 +120,28 @@ var Registry = []ProviderInfo{
 		AuthPrefix:  "Bearer ",
 		Models:      []string{"anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.5-flash-preview", "meta-llama/llama-4-maverick"},
 		KeyEnvVar:   "OPENROUTER_API_KEY",
+		RequiresKey: true,
+		Protocol:    "openai",
+	},
+	{
+		ID:          "nvidia_nim",
+		Name:        "NVIDIA NIM",
+		BaseURL:     "https://integrate.api.nvidia.com/v1",
+		AuthHeader:  "Authorization",
+		AuthPrefix:  "Bearer ",
+		Models:      []string{"meta/llama-3.1-70b-instruct", "mistralai/mixtral-8x7b-instruct-v0.1", "nvidia/llama-3.1-nemotron-70b-instruct"},
+		KeyEnvVar:   "NVIDIA_API_KEY",
+		RequiresKey: true,
+		Protocol:    "openai",
+	},
+	{
+		ID:          "grok",
+		Name:        "xAI Grok",
+		BaseURL:     "https://api.x.ai",
+		AuthHeader:  "Authorization",
+		AuthPrefix:  "Bearer ",
+		Models:      []string{"grok-3", "grok-3-mini", "grok-2"},
+		KeyEnvVar:   "XAI_API_KEY",
 		RequiresKey: true,
 		Protocol:    "openai",
 	},
@@ -141,6 +163,17 @@ var Registry = []ProviderInfo{
 		AuthHeader:  "",
 		AuthPrefix:  "",
 		Models:      []string{"llama3.2:3b", "llama3.1:8b", "mistral:7b", "qwen2.5:7b", "gemma2:9b", "phi3:mini"},
+		KeyEnvVar:   "",
+		RequiresKey: false,
+		Protocol:    "openai",
+	},
+	{
+		ID:          "local",
+		Name:        "Local OpenAI-Compatible",
+		BaseURL:     "http://127.0.0.1:8080/v1",
+		AuthHeader:  "",
+		AuthPrefix:  "",
+		Models:      []string{"local"},
 		KeyEnvVar:   "",
 		RequiresKey: false,
 		Protocol:    "openai",
@@ -172,6 +205,9 @@ var Registry = []ProviderInfo{
 // LookupProvider returns provider info by ID
 func LookupProvider(id string) *ProviderInfo {
 	id = strings.ToLower(id)
+	if id == "gemini" {
+		id = "google"
+	}
 	for i := range Registry {
 		if Registry[i].ID == id {
 			return &Registry[i]
