@@ -230,9 +230,7 @@ func (c *Config) normalize() {
 		{root: c.SharedDir, dir: c.SecondaryFirmwareDir},
 	}
 	for _, item := range managedDirs {
-		if pathWithinRoot(item.root, item.dir) {
-			os.MkdirAll(item.dir, 0755)
-		}
+		ensureDirWithinRoot(item.root, item.dir)
 	}
 }
 
@@ -256,6 +254,20 @@ func pathWithinRoot(root, candidate string) bool {
 	}
 	rel, err := filepath.Rel(root, candidate)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
+func ensureDirWithinRoot(root, dir string) {
+	if !pathWithinRoot(root, dir) {
+		return
+	}
+	rel, err := filepath.Rel(root, dir)
+	if err != nil {
+		return
+	}
+	safeDir := filepath.Clean(filepath.Join(root, rel))
+	if pathWithinRoot(root, safeDir) {
+		os.MkdirAll(safeDir, 0755)
+	}
 }
 
 // ToProviderConfig converts to provider.ProviderConfig

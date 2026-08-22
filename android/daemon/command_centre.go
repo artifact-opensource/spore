@@ -437,25 +437,29 @@ func isFirmwareAsset(path string) bool {
 }
 
 func resolveCommandCentreAsset(cfg *core.Config, requested string) (string, string, error) {
-	parts := strings.SplitN(requested, ":", 2)
-	if len(parts) != 2 || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid source: %s", requested)
+	projectDir := detectESP32Project()
+	for _, item := range listFirmwareAssets(cfg, projectDir) {
+		if item.Source != requested {
+			continue
+		}
+		parts := strings.SplitN(item.Source, ":", 2)
+		if len(parts) != 2 || item.Path == "" {
+			break
+		}
+		root, err := commandCentreRoot(parts[0], cfg, projectDir)
+		if err != nil {
+			return "", "", err
+		}
+		candidate, err := joinUnderRoot(root, item.Path)
+		if err != nil {
+			return "", "", err
+		}
+		if !pathWithinRoot(root, candidate) {
+			return "", "", fmt.Errorf("path escapes root")
+		}
+		return root, candidate, nil
 	}
-	root, err := commandCentreRoot(parts[0], cfg, detectESP32Project())
-	if err != nil {
-		return "", "", err
-	}
-	candidate, err := joinUnderRoot(root, parts[1])
-	if err != nil {
-		return "", "", err
-	}
-	if !pathWithinRoot(root, candidate) {
-		return "", "", fmt.Errorf("path escapes root")
-	}
-	if _, err := os.Stat(candidate); err != nil {
-		return "", "", fmt.Errorf("source not found: %s", requested)
-	}
-	return root, candidate, nil
+	return "", "", fmt.Errorf("source not found: %s", requested)
 }
 
 func copyFile(srcRoot, src, dstRoot, dst string) error {
