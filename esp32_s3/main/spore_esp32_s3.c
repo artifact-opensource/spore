@@ -113,7 +113,8 @@ static void emit_status_snapshot(const char *profile, const char *activity, cons
 
 #if SPORE_HAS_HTTPD
 static esp_err_t status_handler(httpd_req_t *req) {
-    const char *body = "{\"service\":\"spore-command-centre\",\"gpio_rgb\":48,\"espnow\":true}";
+    char body[96];
+    snprintf(body, sizeof(body), "{\"service\":\"spore-command-centre\",\"gpio_rgb\":%d,\"espnow\":true}", SPORE_RGB_GPIO);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, body);
 }

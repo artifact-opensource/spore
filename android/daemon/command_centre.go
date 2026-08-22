@@ -160,7 +160,7 @@ func (h *apiHandler) commandCentreFirmware(w http.ResponseWriter, r *http.Reques
 		req.Address = "0x0"
 	}
 
-	source, err := resolveCommandCentrePath(cfg, req.Source)
+	sourceRoot, source, err := resolveCommandCentreAsset(cfg, req.Source)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -173,7 +173,7 @@ func (h *apiHandler) commandCentreFirmware(w http.ResponseWriter, r *http.Reques
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := copyFile(filepath.Dir(source), source, cfg.SecondaryFirmwareDir, target); err != nil {
+		if err := copyFile(sourceRoot, source, cfg.SecondaryFirmwareDir, target); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -436,26 +436,26 @@ func isFirmwareAsset(path string) bool {
 	}
 }
 
-func resolveCommandCentrePath(cfg *core.Config, requested string) (string, error) {
+func resolveCommandCentreAsset(cfg *core.Config, requested string) (string, string, error) {
 	parts := strings.SplitN(requested, ":", 2)
 	if len(parts) != 2 || parts[1] == "" {
-		return "", fmt.Errorf("invalid source: %s", requested)
+		return "", "", fmt.Errorf("invalid source: %s", requested)
 	}
 	root, err := commandCentreRoot(parts[0], cfg, detectESP32Project())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	candidate, err := joinUnderRoot(root, parts[1])
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if !pathWithinRoot(root, candidate) {
-		return "", fmt.Errorf("path escapes root")
+		return "", "", fmt.Errorf("path escapes root")
 	}
 	if _, err := os.Stat(candidate); err != nil {
-		return "", fmt.Errorf("source not found: %s", requested)
+		return "", "", fmt.Errorf("source not found: %s", requested)
 	}
-	return candidate, nil
+	return root, candidate, nil
 }
 
 func copyFile(srcRoot, src, dstRoot, dst string) error {
